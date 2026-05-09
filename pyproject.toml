@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gitrep"
+version = "0.1.0"
+description = "Multi-repo status & mass-fetch manager"
+requires-python = ">=3.10"
+authors = [{ name = "Rich Fiorella" }]
+dependencies = [
+    "rich>=13",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7",
+    "pytest-timeout>=2",
+]
+
+[project.scripts]
+gitrep = "gitrep.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+timeout = 60

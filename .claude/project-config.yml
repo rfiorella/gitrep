@@ -1,0 +1,11 @@
+project_name: gitrep
+workflow_types:
+  - analysis
+spec_storage_mode: mutable
+specs_dir: specs/
+
+analysis:
+  primary_language: python
+  environment_manager: mamba
+  environment_name: gitrep
+  default_test_strategy: test-along
