@@ -33,7 +33,17 @@ def _build_parser() -> argparse.ArgumentParser:
             "vs origin/<current-branch> (same-name)."
         ),
     )
+    p.add_argument(
+        "--remote-status",
+        action="store_true",
+        help="Also report the number of configured remotes per repo.",
+    )
     return p
+
+
+def _pull_clean_base_eligible(s) -> bool:
+    """Every ``--pull-clean`` condition except the remote-count restriction."""
+    return bool(s.behind) and not s.dirty and not s.detached and s.has_upstream and not s.error
 
 
 def _confirm(prompt: str) -> bool:
@@ -68,7 +78,14 @@ def main(argv: list[str] | None = None) -> int:
     ]
 
     if args.json:
-        print(render_json(statuses, show_all=args.all, show_upstream=args.upstream_status))
+        print(
+            render_json(
+                statuses,
+                show_all=args.all,
+                show_upstream=args.upstream_status,
+                show_remote=args.remote_status,
+            )
+        )
     else:
         console.print(
             render_table(
@@ -76,6 +93,7 @@ def main(argv: list[str] | None = None) -> int:
                 show_all=args.all,
                 root=str(root),
                 show_upstream=args.upstream_status,
+                show_remote=args.remote_status,
             )
         )
 
@@ -86,13 +104,23 @@ def main(argv: list[str] | None = None) -> int:
                 subprocess.run(["git", "-C", str(s.path), "status", "-s"])
 
     if args.pull_clean:
-        targets = [s for s in statuses if s.behind and not s.dirty and not s.detached and s.has_upstream and not s.error]
+        eligible = [s for s in statuses if _pull_clean_base_eligible(s)]
+        targets = [s for s in eligible if s.remote_count == 1]
+        skipped = [s for s in eligible if s.remote_count != 1]
+
         if not targets:
             console.print("[dim]no clean+behind repos to pull[/dim]")
         else:
             console.print(f"[bold]pull-clean targets ({len(targets)}):[/bold]")
             for s in targets:
                 console.print(f"  {s.path} (behind {s.behind})")
+
+        if skipped:
+            console.print(f"[dim]skipped {len(skipped)} repo(s) with multiple remotes:[/dim]")
+            for s in skipped:
+                console.print(f"  {s.path} ({s.remote_count} remotes)")
+
+        if targets:
             if _confirm("proceed with pull on these repos? [y/N] "):
                 for s in targets:
                     console.rule(str(s.path))

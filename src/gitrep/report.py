@@ -24,6 +24,7 @@ def render_table(
     show_all: bool = False,
     root: str | None = None,
     show_upstream: bool = False,
+    show_remote: bool = False,
 ) -> Table:
     rows = list(statuses) if show_all else filter_attention(statuses)
 
@@ -37,6 +38,8 @@ def render_table(
     table.add_column("ahead", justify="right")
     table.add_column("behind", justify="right")
     table.add_column("stash", justify="right")
+    if show_remote:
+        table.add_column("remotes", justify="right")
     if show_upstream:
         table.add_column("vs master (A/B)", justify="right")
         table.add_column("vs same-name (A/B)", justify="right")
@@ -62,6 +65,8 @@ def render_table(
         stash_cell = f"[cyan]{s.stash_count}[/cyan]" if s.stash_count else "0"
 
         cells = [repo_str, branch, dirty_cell, ahead_cell, behind_cell, stash_cell]
+        if show_remote:
+            cells.append(str(s.remote_count))
         if show_upstream:
             cells.append(_ab_cell(s.upstream_master_ahead, s.upstream_master_behind))
             cells.append(_ab_cell(s.upstream_same_name_ahead, s.upstream_same_name_behind))
@@ -84,10 +89,11 @@ def render_json(
     *,
     show_all: bool = False,
     show_upstream: bool = False,
+    show_remote: bool = False,
 ) -> str:
     rows = list(statuses) if show_all else filter_attention(statuses)
     return json.dumps(
-        [s.to_dict(include_upstream=show_upstream) for s in rows],
+        [s.to_dict(include_remote=show_remote, include_upstream=show_upstream) for s in rows],
         indent=2,
         sort_keys=True,
     )

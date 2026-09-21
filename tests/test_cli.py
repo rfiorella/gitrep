@@ -108,6 +108,7 @@ def test_cli_pull_clean_aborts_without_confirmation(repo_tree, monkeypatch):
         return RepoStatus(
             path=Path(path), branch="main", detached=False, dirty=False,
             ahead=0, behind=2, has_upstream=True, stash_count=0, bare=False, error=None,
+            remote_count=1,
         )
 
     monkeypatch.setattr(cli_mod, "inspect_repo", fake_inspect)
@@ -182,6 +183,7 @@ def test_cli_upstream_status_passes_with_upstream_to_inspect(repo_tree, monkeypa
         return RepoStatus(
             path=Path(path), branch="main", detached=False, dirty=False,
             ahead=0, behind=0, has_upstream=False, stash_count=0, bare=False, error=None,
+            remote_count=1,
         )
 
     monkeypatch.setattr(cli_mod, "inspect_repo", fake_inspect)
@@ -199,6 +201,7 @@ def test_cli_pull_clean_runs_pull_after_confirmation(repo_tree, monkeypatch):
         return RepoStatus(
             path=Path(path), branch="main", detached=False, dirty=False,
             ahead=0, behind=2, has_upstream=True, stash_count=0, bare=False, error=None,
+            remote_count=1,
         )
 
     monkeypatch.setattr(cli_mod, "inspect_repo", fake_inspect)
@@ -220,3 +223,145 @@ def test_cli_pull_clean_runs_pull_after_confirmation(repo_tree, monkeypatch):
     assert len(pulls) >= 1
     for c in pulls:
         assert "--ff-only" in c
+
+
+def test_pull_clean_multi_remote_excluded(repo_tree, monkeypatch, capsys):
+    monkeypatch.setattr(cli_mod, "fetch_all", lambda repos, **kw: {p: None for p in repos})
+    from gitrep.inspect import RepoStatus
+    from pathlib import Path
+
+    def fake_inspect(path, *, timeout=5.0, with_upstream=False):
+        return RepoStatus(
+            path=Path(path), branch="main", detached=False, dirty=False,
+            ahead=0, behind=2, has_upstream=True, stash_count=0, bare=False, error=None,
+            remote_count=2,
+        )
+
+    monkeypatch.setattr(cli_mod, "inspect_repo", fake_inspect)
+    monkeypatch.setattr(cli_mod, "_confirm", lambda prompt: True)
+
+    runs = []
+    real_run = subprocess.run
+
+    def spy_run(cmd, *a, **kw):
+        runs.append(list(cmd))
+        return real_run(cmd, *a, **kw)
+
+    monkeypatch.setattr(cli_mod.subprocess, "run", spy_run)
+    rc = cli_mod.main(["--root", str(repo_tree), "--no-fetch", "--pull-clean"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    # every repo in the fixture has two remotes, so no target list is
+    # ever printed and no path is offered for pull.
+    assert "pull-clean targets" not in out
+    assert "no clean+behind repos to pull" in out
+    for cmd in runs:
+        assert "pull" not in cmd, f"unexpected pull invocation: {cmd}"
+
+
+def test_pull_clean_single_remote_included(repo_tree, monkeypatch):
+    monkeypatch.setattr(cli_mod, "fetch_all", lambda repos, **kw: {p: None for p in repos})
+    from gitrep.inspect import RepoStatus
+    from pathlib import Path
+
+    def fake_inspect(path, *, timeout=5.0, with_upstream=False):
+        return RepoStatus(
+            path=Path(path), branch="main", detached=False, dirty=False,
+            ahead=0, behind=2, has_upstream=True, stash_count=0, bare=False, error=None,
+            remote_count=1,
+        )
+
+    monkeypatch.setattr(cli_mod, "inspect_repo", fake_inspect)
+    monkeypatch.setattr(cli_mod, "_confirm", lambda prompt: True)
+
+    runs = []
+
+    def spy_run(cmd, *a, **kw):
+        runs.append(list(cmd))
+        # don't actually run pulls; return a dummy
+        class R:
+            returncode = 0
+        return R()
+
+    monkeypatch.setattr(cli_mod.subprocess, "run", spy_run)
+    rc = cli_mod.main(["--root", str(repo_tree), "--no-fetch", "--pull-clean"])
+    assert rc == 0
+    pulls = [c for c in runs if "pull" in c]
+    assert len(pulls) >= 1
+    for c in pulls:
+        assert "--ff-only" in c
+
+
+def test_pull_clean_announces_multi_remote_skips(tmp_path, monkeypatch, capsys):
+    from gitrep.inspect import RepoStatus
+    from pathlib import Path
+
+    single_path = tmp_path / "single_remote_repo"
+    multi_path = tmp_path / "multi_remote_repo"
+
+    def fake_discover(root, *, skip_submodules=True):
+        return [single_path, multi_path]
+
+    def fake_inspect(path, *, timeout=5.0, with_upstream=False):
+        path = Path(path)
+        is_multi = path == multi_path
+        return RepoStatus(
+            path=path, branch="main", detached=False, dirty=False,
+            ahead=0, behind=2, has_upstream=True, stash_count=0, bare=False, error=None,
+            remote_count=2 if is_multi else 1,
+        )
+
+    captured = {"before_confirm": None}
+
+    def fake_confirm(prompt):
+        # Snapshot everything printed so far, *before* answering the
+        # prompt, so we can prove the skip block was already on screen
+        # when the confirmation was requested.
+        captured["before_confirm"] = capsys.readouterr().out
+        return False
+
+    monkeypatch.setattr(cli_mod, "discover_repos", fake_discover)
+    monkeypatch.setattr(cli_mod, "fetch_all", lambda repos, **kw: {p: None for p in repos})
+    monkeypatch.setattr(cli_mod, "inspect_repo", fake_inspect)
+    monkeypatch.setattr(cli_mod, "_confirm", fake_confirm)
+
+    runs = []
+    real_run = subprocess.run
+
+    def spy_run(cmd, *a, **kw):
+        runs.append(list(cmd))
+        return real_run(cmd, *a, **kw)
+
+    monkeypatch.setattr(cli_mod.subprocess, "run", spy_run)
+
+    # Fixture paths under tmp_path can be long; give the console enough
+    # width that rich doesn't soft-wrap a path across two lines, which
+    # would otherwise break the line-based block search below.
+    monkeypatch.setenv("COLUMNS", "400")
+
+    rc = cli_mod.main(["--root", str(tmp_path), "--no-fetch", "--pull-clean"])
+    assert rc == 0
+    for cmd in runs:
+        assert "pull" not in cmd, f"unexpected pull invocation: {cmd}"
+
+    out = captured["before_confirm"]
+    assert out is not None, "_confirm was never called"
+
+    lines = out.splitlines()
+    target_idx = next(
+        (i for i, ln in enumerate(lines) if "pull-clean targets" in ln), None
+    )
+    skip_idx = next(
+        (i for i, ln in enumerate(lines) if "multiple remotes" in ln), None
+    )
+    assert target_idx is not None, "target block header not found before prompt"
+    assert skip_idx is not None, "skip block header not found before prompt"
+    assert target_idx < skip_idx, "skip block must be printed after the target block"
+
+    target_block = "\n".join(lines[target_idx:skip_idx])
+    skip_block = "\n".join(lines[skip_idx:])
+
+    assert str(single_path) in target_block
+    assert str(multi_path) not in target_block
+    assert str(multi_path) in skip_block
+    assert str(single_path) not in skip_block
