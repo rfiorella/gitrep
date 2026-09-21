@@ -18,12 +18,13 @@ class RepoStatus:
     stash_count: int
     bare: bool
     error: str | None
+    remote_count: int
     upstream_master_ahead: int | None = None
     upstream_master_behind: int | None = None
     upstream_same_name_ahead: int | None = None
     upstream_same_name_behind: int | None = None
 
-    def to_dict(self, *, include_upstream: bool = False) -> dict[str, Any]:
+    def to_dict(self, *, include_upstream: bool = False, include_remote: bool = False) -> dict[str, Any]:
         d = asdict(self)
         d["path"] = str(self.path)
         if not include_upstream:
@@ -34,6 +35,8 @@ class RepoStatus:
                 "upstream_same_name_behind",
             ):
                 d.pop(k, None)
+        if not include_remote:
+            d.pop("remote_count", None)
         return d
 
     @property
@@ -136,6 +139,7 @@ def inspect_repo(
         stash_count=0,
         bare=False,
         error=None,
+        remote_count=0,
     )
 
     try:
@@ -144,6 +148,10 @@ def inspect_repo(
             base.error = (err.strip() or out.strip() or "git rev-parse failed")
             return base
         base.bare = out.strip() == "true"
+
+        rc, out, _ = _run(path, ["remote"], timeout)
+        if rc == 0:
+            base.remote_count = sum(1 for line in out.splitlines() if line.strip())
 
         rc, out, _ = _run(path, ["rev-parse", "--abbrev-ref", "HEAD"], timeout)
         if rc == 0:

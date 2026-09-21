@@ -19,6 +19,7 @@ def _mk(path="/x", **kw):
         stash_count=0,
         bare=False,
         error=None,
+        remote_count=0,
     )
     base.update(kw)
     return RepoStatus(**base)
@@ -197,3 +198,40 @@ def test_render_json_omits_upstream_keys_when_flag_unset():
         "upstream_same_name_behind",
     ):
         assert k not in parsed[0]
+
+
+# --- remote-status rendering ----------------------------------------------
+
+def test_render_table_shows_remotes_column_when_flag_set():
+    item = _mk("/r", dirty=True, remote_count=3)
+    t = render_table([item], show_remote=True)
+    from rich.console import Console
+    import io
+    c = Console(file=io.StringIO(), width=200, force_terminal=False)
+    c.print(t)
+    out = c.file.getvalue()
+    assert "remotes" in out
+    assert "3" in out
+
+
+def test_render_table_omits_remotes_column_when_flag_unset():
+    item = _mk("/r", dirty=True, remote_count=3)
+    t = render_table([item])
+    from rich.console import Console
+    import io
+    c = Console(file=io.StringIO(), width=200, force_terminal=False)
+    c.print(t)
+    out = c.file.getvalue()
+    assert "remotes" not in out
+
+
+def test_render_json_includes_remote_count_when_flag_set():
+    item = _mk("/r", dirty=True, remote_count=4)
+    parsed = json.loads(render_json([item], show_remote=True))
+    assert parsed[0]["remote_count"] == 4
+
+
+def test_render_json_omits_remote_count_when_flag_unset():
+    item = _mk("/r", dirty=True, remote_count=4)
+    parsed = json.loads(render_json([item]))
+    assert "remote_count" not in parsed[0]

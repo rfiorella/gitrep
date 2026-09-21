@@ -342,3 +342,35 @@ def test_upstream_status_helper_direct(make_repo, commit, git):
     # origin/main exists, so same-name resolves equal to master in this case.
     assert sa == 1
     assert sb == 0
+
+
+# --- remote_count tests ----------------------------------------------------
+
+def test_remote_count_zero_remotes(make_repo, commit):
+    r = make_repo("noremotes")
+    commit(r, "f.txt")
+    s = inspect_repo(r)
+    assert s.remote_count == 0
+
+
+def test_remote_count_one_remote(make_repo, commit, git):
+    upstream = make_repo("onerc-up")
+    commit(upstream, "f.txt")
+    work = make_repo("onerc")
+    commit(work, "f.txt")
+    git(work, "remote", "add", "origin", str(upstream))
+    s = inspect_repo(work)
+    assert s.remote_count == 1
+
+
+def test_remote_count_two_remotes(make_repo, commit, git):
+    origin = make_repo("tworc-origin")
+    commit(origin, "f.txt")
+    other = make_repo("tworc-upstream")
+    commit(other, "f.txt")
+    work = make_repo("tworc")
+    commit(work, "f.txt")
+    git(work, "remote", "add", "origin", str(origin))
+    git(work, "remote", "add", "upstream", str(other))
+    s = inspect_repo(work)
+    assert s.remote_count == 2
