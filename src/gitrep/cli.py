@@ -71,7 +71,13 @@ def _build_parser() -> argparse.ArgumentParser:
 
 def _pull_clean_base_eligible(s) -> bool:
     """Every ``--pull-clean`` condition except the remote-count restriction."""
-    return bool(s.behind) and not s.dirty and not s.detached and s.has_upstream and not s.error
+    return (
+        bool(s.behind)
+        and not s.dirty
+        and not s.detached
+        and s.has_upstream
+        and not s.error
+    )
 
 
 def _confirm(prompt: str) -> bool:
@@ -131,8 +137,7 @@ def main(argv: list[str] | None = None) -> int:
         for s in statuses:
             if s.dirty:
                 console.rule(str(s.path))
-                subprocess.run(["git", "-C", str(s.path), "status", "-s"],
-                               check=False)
+                subprocess.run(["git", "-C", str(s.path), "status", "-s"], check=False)
 
     if args.pull_clean:
         eligible = [s for s in statuses if _pull_clean_base_eligible(s)]
@@ -147,7 +152,9 @@ def main(argv: list[str] | None = None) -> int:
                 console.print(f"  {s.path} (behind {s.behind})")
 
         if skipped:
-            console.print(f"[dim]skipped {len(skipped)} repo(s) with multiple remotes:[/dim]")
+            console.print(
+                f"[dim]skipped {len(skipped)} repo(s) with multiple remotes:[/dim]"
+            )
             for s in skipped:
                 console.print(f"  {s.path} ({s.remote_count} remotes)")
 
@@ -155,8 +162,9 @@ def main(argv: list[str] | None = None) -> int:
             if _confirm("proceed with pull on these repos? [y/N] "):
                 for s in targets:
                     console.rule(str(s.path))
-                    subprocess.run(["git", "-C", str(s.path), "pull", "--ff-only"],
-                                   check=False)
+                    subprocess.run(
+                        ["git", "-C", str(s.path), "pull", "--ff-only"], check=False
+                    )
             else:
                 console.print("[dim]aborted[/dim]")
 

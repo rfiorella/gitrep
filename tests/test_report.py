@@ -9,16 +9,16 @@ from gitrep.report import filter_attention, render_json, render_table
 
 def _mk(path="/x", **kw):
     base = {
-        "path":Path(path),
-        "branch":"main",
-        "detached":False,
-        "dirty":False,
-        "ahead":0,
-        "behind":0,
-        "has_upstream":True,
-        "stash_count":0,
-        "bare":False,
-        "error":None,
+        "path": Path(path),
+        "branch": "main",
+        "detached": False,
+        "dirty": False,
+        "ahead": 0,
+        "behind": 0,
+        "has_upstream": True,
+        "stash_count": 0,
+        "bare": False,
+        "error": None,
     }
     base.update(kw)
     return RepoStatus(**base)
@@ -215,11 +215,14 @@ def test_render_json_omits_upstream_keys_when_flag_unset():
 
 # --- remote-status rendering ----------------------------------------------
 
+
 def test_render_table_shows_remotes_column_when_flag_set():
     item = _mk("/r", dirty=True, remote_count=3)
     t = render_table([item], show_remote=True)
-    from rich.console import Console
     import io
+
+    from rich.console import Console
+
     c = Console(file=io.StringIO(), width=200, force_terminal=False)
     c.print(t)
     out = c.file.getvalue()
@@ -230,8 +233,10 @@ def test_render_table_shows_remotes_column_when_flag_set():
 def test_render_table_omits_remotes_column_when_flag_unset():
     item = _mk("/r", dirty=True, remote_count=3)
     t = render_table([item])
-    from rich.console import Console
     import io
+
+    from rich.console import Console
+
     c = Console(file=io.StringIO(), width=200, force_terminal=False)
     c.print(t)
     out = c.file.getvalue()

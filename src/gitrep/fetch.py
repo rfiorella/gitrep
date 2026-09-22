@@ -27,7 +27,7 @@ def _fetch_one(path: Path, timeout: float) -> FetchResult:
             capture_output=True,
             text=True,
             timeout=timeout,
-            check=False
+            check=False,
         )
         dur = time.monotonic() - t0
         return FetchResult(

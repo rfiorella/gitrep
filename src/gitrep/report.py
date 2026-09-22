@@ -96,7 +96,10 @@ def render_json(
 ) -> str:
     rows = list(statuses) if show_all else filter_attention(statuses)
     return json.dumps(
-        [s.to_dict(include_remote=show_remote, include_upstream=show_upstream) for s in rows],
+        [
+            s.to_dict(include_remote=show_remote, include_upstream=show_upstream)
+            for s in rows
+        ],
         indent=2,
         sort_keys=True,
     )

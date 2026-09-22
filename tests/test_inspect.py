@@ -355,6 +355,7 @@ def test_upstream_status_helper_direct(make_repo, commit, git):
 
 # --- remote_count tests ----------------------------------------------------
 
+
 def test_remote_count_zero_remotes(make_repo, commit):
     r = make_repo("noremotes")
     commit(r, "f.txt")

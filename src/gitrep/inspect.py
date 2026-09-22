@@ -24,7 +24,9 @@ class RepoStatus:
     upstream_same_name_ahead: int | None = None
     upstream_same_name_behind: int | None = None
 
-    def to_dict(self, *, include_upstream: bool = False, include_remote: bool = False) -> dict[str, Any]:
+    def to_dict(
+        self, *, include_upstream: bool = False, include_remote: bool = False
+    ) -> dict[str, Any]:
         d = asdict(self)
         d["path"] = str(self.path)
         if not include_upstream:
@@ -50,7 +52,7 @@ def _run(path: Path, args: list[str], timeout: float) -> tuple[int, str, str]:
         capture_output=True,
         text=True,
         timeout=timeout,
-        check=False
+        check=False,
     )
     return proc.returncode, proc.stdout, proc.stderr
 
