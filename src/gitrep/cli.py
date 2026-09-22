@@ -14,17 +14,45 @@ from .report import render_json, render_table
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(prog="gitrep", description="Multi-repo status & mass-fetch manager")
+    p = argparse.ArgumentParser(
+        prog="gitrep", description="Multi-repo status & mass-fetch manager"
+    )
     p.add_argument("--root", default="/code", help="Root dir to scan (default: /code)")
-    p.add_argument("--all", action="store_true", help="Show all repos, not just attention-needing")
+    p.add_argument(
+        "--all", action="store_true", help="Show all repos, not just attention-needing"
+    )
     p.add_argument("--json", action="store_true", help="Emit JSON instead of table")
     p.add_argument("--no-fetch", action="store_true", help="Skip parallel fetch step")
-    p.add_argument("--workers", type=int, default=16, help="Fetch worker count (default 16)")
-    p.add_argument("--fetch-timeout", type=float, default=30.0, help="Per-repo fetch timeout seconds")
-    p.add_argument("--inspect-timeout", type=float, default=10.0, help="Per-repo inspect timeout seconds")
-    p.add_argument("--include-submodules", action="store_true", help="Include submodule .git-file repos")
-    p.add_argument("--pull-clean", action="store_true", help="After listing, prompt to pull repos that are clean and behind")
-    p.add_argument("--show-diff", action="store_true", help="Print git status -s for each dirty repo")
+    p.add_argument(
+        "--workers", type=int, default=16, help="Fetch worker count (default 16)"
+    )
+    p.add_argument(
+        "--fetch-timeout",
+        type=float,
+        default=30.0,
+        help="Per-repo fetch timeout seconds",
+    )
+    p.add_argument(
+        "--inspect-timeout",
+        type=float,
+        default=10.0,
+        help="Per-repo inspect timeout seconds",
+    )
+    p.add_argument(
+        "--include-submodules",
+        action="store_true",
+        help="Include submodule .git-file repos",
+    )
+    p.add_argument(
+        "--pull-clean",
+        action="store_true",
+        help="After listing, prompt to pull repos that are clean and behind",
+    )
+    p.add_argument(
+        "--show-diff",
+        action="store_true",
+        help="Print git status -s for each dirty repo",
+    )
     p.add_argument(
         "--upstream-status",
         action="store_true",
@@ -43,7 +71,13 @@ def _build_parser() -> argparse.ArgumentParser:
 
 def _pull_clean_base_eligible(s) -> bool:
     """Every ``--pull-clean`` condition except the remote-count restriction."""
-    return bool(s.behind) and not s.dirty and not s.detached and s.has_upstream and not s.error
+    return (
+        bool(s.behind)
+        and not s.dirty
+        and not s.detached
+        and s.has_upstream
+        and not s.error
+    )
 
 
 def _confirm(prompt: str) -> bool:
@@ -73,7 +107,9 @@ def main(argv: list[str] | None = None) -> int:
             fetch_all(repos, max_workers=args.workers, timeout=args.fetch_timeout)
 
     statuses = [
-        inspect_repo(p, timeout=args.inspect_timeout, with_upstream=args.upstream_status)
+        inspect_repo(
+            p, timeout=args.inspect_timeout, with_upstream=args.upstream_status
+        )
         for p in repos
     ]
 
@@ -101,7 +137,7 @@ def main(argv: list[str] | None = None) -> int:
         for s in statuses:
             if s.dirty:
                 console.rule(str(s.path))
-                subprocess.run(["git", "-C", str(s.path), "status", "-s"])
+                subprocess.run(["git", "-C", str(s.path), "status", "-s"], check=False)
 
     if args.pull_clean:
         eligible = [s for s in statuses if _pull_clean_base_eligible(s)]
@@ -116,7 +152,9 @@ def main(argv: list[str] | None = None) -> int:
                 console.print(f"  {s.path} (behind {s.behind})")
 
         if skipped:
-            console.print(f"[dim]skipped {len(skipped)} repo(s) with multiple remotes:[/dim]")
+            console.print(
+                f"[dim]skipped {len(skipped)} repo(s) with multiple remotes:[/dim]"
+            )
             for s in skipped:
                 console.print(f"  {s.path} ({s.remote_count} remotes)")
 
@@ -124,7 +162,9 @@ def main(argv: list[str] | None = None) -> int:
             if _confirm("proceed with pull on these repos? [y/N] "):
                 for s in targets:
                     console.rule(str(s.path))
-                    subprocess.run(["git", "-C", str(s.path), "pull", "--ff-only"])
+                    subprocess.run(
+                        ["git", "-C", str(s.path), "pull", "--ff-only"], check=False
+                    )
             else:
                 console.print("[dim]aborted[/dim]")
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from typing import Iterable
+from collections.abc import Iterable
 
 from rich.table import Table
 
@@ -69,7 +69,9 @@ def render_table(
             cells.append(str(s.remote_count))
         if show_upstream:
             cells.append(_ab_cell(s.upstream_master_ahead, s.upstream_master_behind))
-            cells.append(_ab_cell(s.upstream_same_name_ahead, s.upstream_same_name_behind))
+            cells.append(
+                _ab_cell(s.upstream_same_name_ahead, s.upstream_same_name_behind)
+            )
         cells.append(note)
         table.add_row(*cells)
 
@@ -79,8 +81,9 @@ def render_table(
 def _relpath(p, root: str) -> str:
     try:
         from pathlib import Path
+
         return str(Path(p).resolve().relative_to(Path(root).resolve()))
-    except Exception:
+    except (ValueError, OSError):
         return str(p)
 
 
@@ -93,7 +96,10 @@ def render_json(
 ) -> str:
     rows = list(statuses) if show_all else filter_attention(statuses)
     return json.dumps(
-        [s.to_dict(include_remote=show_remote, include_upstream=show_upstream) for s in rows],
+        [
+            s.to_dict(include_remote=show_remote, include_upstream=show_upstream)
+            for s in rows
+        ],
         indent=2,
         sort_keys=True,
     )

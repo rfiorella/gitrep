@@ -2,9 +2,6 @@ from __future__ import annotations
 
 import json
 import subprocess
-import sys
-
-import pytest
 
 from gitrep import cli as cli_mod
 
@@ -22,7 +19,15 @@ def test_cli_json_no_fetch(repo_tree, capsys):
     assert isinstance(parsed, list)
     assert len(parsed) >= 4
     for entry in parsed:
-        for key in ("path", "branch", "dirty", "ahead", "behind", "has_upstream", "stash_count"):
+        for key in (
+            "path",
+            "branch",
+            "dirty",
+            "ahead",
+            "behind",
+            "has_upstream",
+            "stash_count",
+        ):
             assert key in entry
 
 
@@ -89,7 +94,9 @@ def test_cli_no_pull_when_pull_clean_absent(repo_tree, monkeypatch):
         return real_run(cmd, *a, **kw)
 
     monkeypatch.setattr(cli_mod.subprocess, "run", spy_run)
-    monkeypatch.setattr(cli_mod, "fetch_all", lambda repos, **kw: {p: None for p in repos})
+    monkeypatch.setattr(
+        cli_mod, "fetch_all", lambda repos, **kw: {p: None for p in repos}
+    )
     rc = cli_mod.main(["--root", str(repo_tree)])
     assert rc == 0
     for cmd in runs:
@@ -99,15 +106,26 @@ def test_cli_no_pull_when_pull_clean_absent(repo_tree, monkeypatch):
 
 
 def test_cli_pull_clean_aborts_without_confirmation(repo_tree, monkeypatch):
-    monkeypatch.setattr(cli_mod, "fetch_all", lambda repos, **kw: {p: None for p in repos})
+    monkeypatch.setattr(
+        cli_mod, "fetch_all", lambda repos, **kw: {p: None for p in repos}
+    )
     # Force a "clean+behind" target by stubbing inspect_repo
-    from gitrep.inspect import RepoStatus
     from pathlib import Path
+
+    from gitrep.inspect import RepoStatus
 
     def fake_inspect(path, *, timeout=5.0, with_upstream=False):
         return RepoStatus(
-            path=Path(path), branch="main", detached=False, dirty=False,
-            ahead=0, behind=2, has_upstream=True, stash_count=0, bare=False, error=None,
+            path=Path(path),
+            branch="main",
+            detached=False,
+            dirty=False,
+            ahead=0,
+            behind=2,
+            has_upstream=True,
+            stash_count=0,
+            bare=False,
+            error=None,
             remote_count=1,
         )
 
@@ -142,9 +160,16 @@ def test_cli_upstream_status_no_repos_exits_zero(tmp_path):
 
 
 def test_cli_upstream_status_json_includes_keys(repo_tree, capsys):
-    rc = cli_mod.main([
-        "--root", str(repo_tree), "--no-fetch", "--json", "--all", "--upstream-status",
-    ])
+    rc = cli_mod.main(
+        [
+            "--root",
+            str(repo_tree),
+            "--no-fetch",
+            "--json",
+            "--all",
+            "--upstream-status",
+        ]
+    )
     assert rc == 0
     parsed = json.loads(capsys.readouterr().out)
     assert isinstance(parsed, list) and len(parsed) >= 1
@@ -175,14 +200,23 @@ def test_cli_json_without_upstream_status_omits_keys(repo_tree, capsys):
 
 def test_cli_upstream_status_passes_with_upstream_to_inspect(repo_tree, monkeypatch):
     seen = {"with_upstream": None}
-    from gitrep.inspect import RepoStatus
     from pathlib import Path
+
+    from gitrep.inspect import RepoStatus
 
     def fake_inspect(path, *, timeout=5.0, with_upstream=False):
         seen["with_upstream"] = with_upstream
         return RepoStatus(
-            path=Path(path), branch="main", detached=False, dirty=False,
-            ahead=0, behind=0, has_upstream=False, stash_count=0, bare=False, error=None,
+            path=Path(path),
+            branch="main",
+            detached=False,
+            dirty=False,
+            ahead=0,
+            behind=0,
+            has_upstream=False,
+            stash_count=0,
+            bare=False,
+            error=None,
             remote_count=1,
         )
 
@@ -193,14 +227,25 @@ def test_cli_upstream_status_passes_with_upstream_to_inspect(repo_tree, monkeypa
 
 
 def test_cli_pull_clean_runs_pull_after_confirmation(repo_tree, monkeypatch):
-    monkeypatch.setattr(cli_mod, "fetch_all", lambda repos, **kw: {p: None for p in repos})
-    from gitrep.inspect import RepoStatus
+    monkeypatch.setattr(
+        cli_mod, "fetch_all", lambda repos, **kw: {p: None for p in repos}
+    )
     from pathlib import Path
+
+    from gitrep.inspect import RepoStatus
 
     def fake_inspect(path, *, timeout=5.0, with_upstream=False):
         return RepoStatus(
-            path=Path(path), branch="main", detached=False, dirty=False,
-            ahead=0, behind=2, has_upstream=True, stash_count=0, bare=False, error=None,
+            path=Path(path),
+            branch="main",
+            detached=False,
+            dirty=False,
+            ahead=0,
+            behind=2,
+            has_upstream=True,
+            stash_count=0,
+            bare=False,
+            error=None,
             remote_count=1,
         )
 
@@ -211,9 +256,11 @@ def test_cli_pull_clean_runs_pull_after_confirmation(repo_tree, monkeypatch):
 
     def spy_run(cmd, *a, **kw):
         runs.append(list(cmd))
+
         # don't actually run pulls; return a dummy
         class R:
             returncode = 0
+
         return R()
 
     monkeypatch.setattr(cli_mod.subprocess, "run", spy_run)
@@ -226,14 +273,25 @@ def test_cli_pull_clean_runs_pull_after_confirmation(repo_tree, monkeypatch):
 
 
 def test_pull_clean_multi_remote_excluded(repo_tree, monkeypatch, capsys):
-    monkeypatch.setattr(cli_mod, "fetch_all", lambda repos, **kw: {p: None for p in repos})
-    from gitrep.inspect import RepoStatus
+    monkeypatch.setattr(
+        cli_mod, "fetch_all", lambda repos, **kw: {p: None for p in repos}
+    )
     from pathlib import Path
+
+    from gitrep.inspect import RepoStatus
 
     def fake_inspect(path, *, timeout=5.0, with_upstream=False):
         return RepoStatus(
-            path=Path(path), branch="main", detached=False, dirty=False,
-            ahead=0, behind=2, has_upstream=True, stash_count=0, bare=False, error=None,
+            path=Path(path),
+            branch="main",
+            detached=False,
+            dirty=False,
+            ahead=0,
+            behind=2,
+            has_upstream=True,
+            stash_count=0,
+            bare=False,
+            error=None,
             remote_count=2,
         )
 
@@ -260,14 +318,25 @@ def test_pull_clean_multi_remote_excluded(repo_tree, monkeypatch, capsys):
 
 
 def test_pull_clean_single_remote_included(repo_tree, monkeypatch):
-    monkeypatch.setattr(cli_mod, "fetch_all", lambda repos, **kw: {p: None for p in repos})
-    from gitrep.inspect import RepoStatus
+    monkeypatch.setattr(
+        cli_mod, "fetch_all", lambda repos, **kw: {p: None for p in repos}
+    )
     from pathlib import Path
+
+    from gitrep.inspect import RepoStatus
 
     def fake_inspect(path, *, timeout=5.0, with_upstream=False):
         return RepoStatus(
-            path=Path(path), branch="main", detached=False, dirty=False,
-            ahead=0, behind=2, has_upstream=True, stash_count=0, bare=False, error=None,
+            path=Path(path),
+            branch="main",
+            detached=False,
+            dirty=False,
+            ahead=0,
+            behind=2,
+            has_upstream=True,
+            stash_count=0,
+            bare=False,
+            error=None,
             remote_count=1,
         )
 
@@ -278,9 +347,11 @@ def test_pull_clean_single_remote_included(repo_tree, monkeypatch):
 
     def spy_run(cmd, *a, **kw):
         runs.append(list(cmd))
+
         # don't actually run pulls; return a dummy
         class R:
             returncode = 0
+
         return R()
 
     monkeypatch.setattr(cli_mod.subprocess, "run", spy_run)
@@ -293,8 +364,9 @@ def test_pull_clean_single_remote_included(repo_tree, monkeypatch):
 
 
 def test_pull_clean_announces_multi_remote_skips(tmp_path, monkeypatch, capsys):
-    from gitrep.inspect import RepoStatus
     from pathlib import Path
+
+    from gitrep.inspect import RepoStatus
 
     single_path = tmp_path / "single_remote_repo"
     multi_path = tmp_path / "multi_remote_repo"
@@ -306,8 +378,16 @@ def test_pull_clean_announces_multi_remote_skips(tmp_path, monkeypatch, capsys):
         path = Path(path)
         is_multi = path == multi_path
         return RepoStatus(
-            path=path, branch="main", detached=False, dirty=False,
-            ahead=0, behind=2, has_upstream=True, stash_count=0, bare=False, error=None,
+            path=path,
+            branch="main",
+            detached=False,
+            dirty=False,
+            ahead=0,
+            behind=2,
+            has_upstream=True,
+            stash_count=0,
+            bare=False,
+            error=None,
             remote_count=2 if is_multi else 1,
         )
 
@@ -321,7 +401,9 @@ def test_pull_clean_announces_multi_remote_skips(tmp_path, monkeypatch, capsys):
         return False
 
     monkeypatch.setattr(cli_mod, "discover_repos", fake_discover)
-    monkeypatch.setattr(cli_mod, "fetch_all", lambda repos, **kw: {p: None for p in repos})
+    monkeypatch.setattr(
+        cli_mod, "fetch_all", lambda repos, **kw: {p: None for p in repos}
+    )
     monkeypatch.setattr(cli_mod, "inspect_repo", fake_inspect)
     monkeypatch.setattr(cli_mod, "_confirm", fake_confirm)
 
@@ -351,9 +433,7 @@ def test_pull_clean_announces_multi_remote_skips(tmp_path, monkeypatch, capsys):
     target_idx = next(
         (i for i, ln in enumerate(lines) if "pull-clean targets" in ln), None
     )
-    skip_idx = next(
-        (i for i, ln in enumerate(lines) if "multiple remotes" in ln), None
-    )
+    skip_idx = next((i for i, ln in enumerate(lines) if "multiple remotes" in ln), None)
     assert target_idx is not None, "target block header not found before prompt"
     assert skip_idx is not None, "skip block header not found before prompt"
     assert target_idx < skip_idx, "skip block must be printed after the target block"

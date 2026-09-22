@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import subprocess
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
@@ -24,7 +24,9 @@ class RepoStatus:
     upstream_same_name_ahead: int | None = None
     upstream_same_name_behind: int | None = None
 
-    def to_dict(self, *, include_upstream: bool = False, include_remote: bool = False) -> dict[str, Any]:
+    def to_dict(
+        self, *, include_upstream: bool = False, include_remote: bool = False
+    ) -> dict[str, Any]:
         d = asdict(self)
         d["path"] = str(self.path)
         if not include_upstream:
@@ -50,6 +52,7 @@ def _run(path: Path, args: list[str], timeout: float) -> tuple[int, str, str]:
         capture_output=True,
         text=True,
         timeout=timeout,
+        check=False,
     )
     return proc.returncode, proc.stdout, proc.stderr
 
@@ -101,14 +104,16 @@ def upstream_status(
         # Same-name branch on origin (only if we have a non-detached branch).
         if branch:
             rc, _out, _ = _run(
-                path, ["rev-parse", "--verify", "--quiet", f"refs/remotes/origin/{branch}"], timeout
+                path,
+                ["rev-parse", "--verify", "--quiet", f"refs/remotes/origin/{branch}"],
+                timeout,
             )
             if rc == 0:
                 same_ahead, same_behind = _ab(f"origin/{branch}")
     except subprocess.TimeoutExpired:
         # leave any unresolved fields as None
         pass
-    except Exception:
+    except (OSError, UnicodeDecodeError):
         pass
 
     return (master_ahead, master_behind, same_ahead, same_behind)
@@ -145,7 +150,7 @@ def inspect_repo(
     try:
         rc, out, err = _run(path, ["rev-parse", "--is-bare-repository"], timeout)
         if rc != 0:
-            base.error = (err.strip() or out.strip() or "git rev-parse failed")
+            base.error = err.strip() or out.strip() or "git rev-parse failed"
             return base
         base.bare = out.strip() == "true"
 
@@ -170,12 +175,16 @@ def inspect_repo(
 
         if base.branch and not base.detached:
             rc, _out, _err = _run(
-                path, ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"], timeout
+                path,
+                ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"],
+                timeout,
             )
             base.has_upstream = rc == 0
             if base.has_upstream:
                 rc, out, _ = _run(
-                    path, ["rev-list", "--left-right", "--count", "@{u}...HEAD"], timeout
+                    path,
+                    ["rev-list", "--left-right", "--count", "@{u}...HEAD"],
+                    timeout,
                 )
                 if rc == 0:
                     parts = out.split()
@@ -202,7 +211,7 @@ def inspect_repo(
         base.error = f"timeout after {timeout}s"
     except FileNotFoundError as e:
         base.error = f"git not found: {e}"
-    except Exception as e:
+    except (OSError, UnicodeDecodeError) as e:
         base.error = f"{type(e).__name__}: {e}"
 
     return base

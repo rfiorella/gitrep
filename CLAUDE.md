@@ -5,7 +5,7 @@ Analysis project. Python. Mamba env `gitrep`. Test strategy: test-along.
 ## claude-workflows
 
 Config: `.claude/project-config.yml`
-Specs: `specs/` (mutable, git-tracked)
+Specs: `specs/` (mutable)
 
 Next: `/new-spec analysis` to scaffold first spec.
 
