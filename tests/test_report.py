@@ -19,6 +19,7 @@ def _mk(path="/x", **kw):
         "stash_count": 0,
         "bare": False,
         "error": None,
+        "remote_count": 1,
     }
     base.update(kw)
     return RepoStatus(**base)
