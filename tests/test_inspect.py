@@ -67,14 +67,14 @@ def _setup_upstream(make_repo, commit, git, name: str):
 
 
 def test_ahead_behind_clean(make_repo, commit, git):
-    upstream, work = _setup_upstream(make_repo, commit, git, "ab1")
+    _upstream, work = _setup_upstream(make_repo, commit, git, "ab1")
     s = inspect_repo(work)
     assert s.has_upstream is True
     assert s.ahead == 0 and s.behind == 0
 
 
 def test_ahead_only(make_repo, commit, git):
-    upstream, work = _setup_upstream(make_repo, commit, git, "ahead")
+    _upstream, work = _setup_upstream(make_repo, commit, git, "ahead")
     commit(work, "h.txt")
     commit(work, "i.txt")
     s = inspect_repo(work)
@@ -175,14 +175,14 @@ def _setup_upstream_with_head(
 
 
 def test_upstream_master_clean(make_repo, commit, git):
-    upstream, work = _setup_upstream_with_head(make_repo, commit, git, "umc")
+    _upstream, work = _setup_upstream_with_head(make_repo, commit, git, "umc")
     s = inspect_repo(work, with_upstream=True)
     assert s.upstream_master_ahead == 0
     assert s.upstream_master_behind == 0
 
 
 def test_upstream_master_ahead(make_repo, commit, git):
-    upstream, work = _setup_upstream_with_head(make_repo, commit, git, "uma")
+    _upstream, work = _setup_upstream_with_head(make_repo, commit, git, "uma")
     commit(work, "h.txt")
     commit(work, "i.txt")
     s = inspect_repo(work, with_upstream=True)
@@ -292,7 +292,7 @@ def test_upstream_same_name_matches_rev_list(make_repo, commit, git):
 
 def test_upstream_missing_same_name(make_repo, commit, git):
     """Local feature branch with no matching branch on origin -> None pair."""
-    upstream, work = _setup_upstream_with_head(make_repo, commit, git, "usnm")
+    _upstream, work = _setup_upstream_with_head(make_repo, commit, git, "usnm")
     # Create the feature branch only locally.
     git(work, "checkout", "-q", "-b", "feature-local-only")
     commit(work, "local.txt")
@@ -317,7 +317,7 @@ def test_upstream_missing_no_origin(make_repo, commit):
 
 def test_upstream_missing_detached_head(make_repo, commit, git):
     """Detached HEAD -> all four upstream fields None (no current branch)."""
-    upstream, work = _setup_upstream_with_head(make_repo, commit, git, "usnd")
+    _upstream, work = _setup_upstream_with_head(make_repo, commit, git, "usnd")
     commit(work, "extra.txt")
     proc = git(work, "rev-parse", "HEAD~1")
     sha = proc.stdout.strip()
@@ -332,7 +332,7 @@ def test_upstream_missing_detached_head(make_repo, commit, git):
 
 def test_upstream_status_default_off(make_repo, commit, git):
     """Without with_upstream=True, the four fields stay None."""
-    upstream, work = _setup_upstream_with_head(make_repo, commit, git, "off")
+    _upstream, work = _setup_upstream_with_head(make_repo, commit, git, "off")
     s = inspect_repo(work)  # default with_upstream=False
     assert s.upstream_master_ahead is None
     assert s.upstream_master_behind is None
@@ -342,7 +342,7 @@ def test_upstream_status_default_off(make_repo, commit, git):
 
 def test_upstream_status_helper_direct(make_repo, commit, git):
     """upstream_status() returns the same four ints as inspect_repo populates."""
-    upstream, work = _setup_upstream_with_head(make_repo, commit, git, "helper")
+    _upstream, work = _setup_upstream_with_head(make_repo, commit, git, "helper")
     commit(work, "h.txt")
     ma, mb, sa, sb = upstream_status(work, branch="main")
     assert ma == 1

@@ -2,7 +2,12 @@ from __future__ import annotations
 
 import subprocess
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import (
+    BrokenExecutor,
+    CancelledError,
+    ThreadPoolExecutor,
+    as_completed,
+)
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -22,6 +27,7 @@ def _fetch_one(path: Path, timeout: float) -> FetchResult:
             capture_output=True,
             text=True,
             timeout=timeout,
+            check=False
         )
         dur = time.monotonic() - t0
         return FetchResult(
@@ -39,7 +45,7 @@ def _fetch_one(path: Path, timeout: float) -> FetchResult:
         return FetchResult(
             ok=False, stderr=f"git not found: {e}", duration_s=time.monotonic() - t0
         )
-    except Exception as e:
+    except (OSError, UnicodeDecodeError) as e:
         return FetchResult(
             ok=False,
             stderr=f"{type(e).__name__}: {e}",
@@ -63,7 +69,7 @@ def fetch_all(
             p = futures[fut]
             try:
                 results[p] = fut.result()
-            except Exception as e:
+            except (CancelledError, BrokenExecutor) as e:
                 results[p] = FetchResult(
                     ok=False, stderr=f"{type(e).__name__}: {e}", duration_s=0.0
                 )

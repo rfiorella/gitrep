@@ -30,7 +30,7 @@ def test_fetch_all_success(make_repo, commit, git):
 
 
 def test_fetch_one_bogus_does_not_abort(make_repo, commit, git, tmp_path):
-    upstream, work = _clone_pair(make_repo, commit, git, "good")
+    _upstream, work = _clone_pair(make_repo, commit, git, "good")
     bad = make_repo("bad")
     commit(bad, "f.txt")
     git(bad, "remote", "add", "origin", str(tmp_path / "nonexistent"))

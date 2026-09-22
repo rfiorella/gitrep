@@ -50,6 +50,7 @@ def _run(path: Path, args: list[str], timeout: float) -> tuple[int, str, str]:
         capture_output=True,
         text=True,
         timeout=timeout,
+        check=False
     )
     return proc.returncode, proc.stdout, proc.stderr
 
@@ -110,7 +111,7 @@ def upstream_status(
     except subprocess.TimeoutExpired:
         # leave any unresolved fields as None
         pass
-    except Exception:
+    except (OSError, UnicodeDecodeError):
         pass
 
     return (master_ahead, master_behind, same_ahead, same_behind)
@@ -208,7 +209,7 @@ def inspect_repo(
         base.error = f"timeout after {timeout}s"
     except FileNotFoundError as e:
         base.error = f"git not found: {e}"
-    except Exception as e:
+    except (OSError, UnicodeDecodeError) as e:
         base.error = f"{type(e).__name__}: {e}"
 
     return base

@@ -83,7 +83,7 @@ def _relpath(p, root: str) -> str:
         from pathlib import Path
 
         return str(Path(p).resolve().relative_to(Path(root).resolve()))
-    except Exception:
+    except (ValueError, OSError):
         return str(p)
 
 

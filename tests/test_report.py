@@ -8,19 +8,18 @@ from gitrep.report import filter_attention, render_json, render_table
 
 
 def _mk(path="/x", **kw):
-    base = dict(
-        path=Path(path),
-        branch="main",
-        detached=False,
-        dirty=False,
-        ahead=0,
-        behind=0,
-        has_upstream=True,
-        stash_count=0,
-        bare=False,
-        error=None,
-        remote_count=0,
-    )
+    base = {
+        "path":Path(path),
+        "branch":"main",
+        "detached":False,
+        "dirty":False,
+        "ahead":0,
+        "behind":0,
+        "has_upstream":True,
+        "stash_count":0,
+        "bare":False,
+        "error":None,
+    }
     base.update(kw)
     return RepoStatus(**base)
 

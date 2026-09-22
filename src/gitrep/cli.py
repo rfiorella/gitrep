@@ -131,7 +131,8 @@ def main(argv: list[str] | None = None) -> int:
         for s in statuses:
             if s.dirty:
                 console.rule(str(s.path))
-                subprocess.run(["git", "-C", str(s.path), "status", "-s"])
+                subprocess.run(["git", "-C", str(s.path), "status", "-s"],
+                               check=False)
 
     if args.pull_clean:
         eligible = [s for s in statuses if _pull_clean_base_eligible(s)]
@@ -154,7 +155,8 @@ def main(argv: list[str] | None = None) -> int:
             if _confirm("proceed with pull on these repos? [y/N] "):
                 for s in targets:
                     console.rule(str(s.path))
-                    subprocess.run(["git", "-C", str(s.path), "pull", "--ff-only"])
+                    subprocess.run(["git", "-C", str(s.path), "pull", "--ff-only"],
+                                   check=False)
             else:
                 console.print("[dim]aborted[/dim]")
 
