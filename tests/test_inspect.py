@@ -1,9 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
-
-import pytest
-
 from gitrep.inspect import inspect_repo, upstream_status
 
 
@@ -122,6 +118,7 @@ def test_bare_repo(tmp_path, git):
     bare = tmp_path / "bare.git"
     bare.mkdir()
     import subprocess
+
     subprocess.run(["git", "init", "-q", "--bare"], cwd=str(bare), check=True)
     s = inspect_repo(bare)
     assert s.bare is True
@@ -147,7 +144,10 @@ def test_needs_attention_property(make_repo, commit):
 
 # --- upstream-status helpers ----------------------------------------------
 
-def _setup_upstream_with_head(make_repo, commit, git, name: str, *, branch: str = "main"):
+
+def _setup_upstream_with_head(
+    make_repo, commit, git, name: str, *, branch: str = "main"
+):
     """Set up an upstream + work clone with origin/HEAD pointing at <branch>.
 
     Returns ``(upstream, work)`` where ``work`` is checked out on ``branch``
@@ -162,11 +162,17 @@ def _setup_upstream_with_head(make_repo, commit, git, name: str, *, branch: str 
     git(work, "checkout", "-q", "-B", branch, f"origin/{branch}")
     git(work, "branch", f"--set-upstream-to=origin/{branch}", branch)
     # Set origin/HEAD explicitly so upstream_status can resolve it.
-    git(work, "symbolic-ref", "refs/remotes/origin/HEAD", f"refs/remotes/origin/{branch}")
+    git(
+        work,
+        "symbolic-ref",
+        "refs/remotes/origin/HEAD",
+        f"refs/remotes/origin/{branch}",
+    )
     return upstream, work
 
 
 # --- upstream_master tests ------------------------------------------------
+
 
 def test_upstream_master_clean(make_repo, commit, git):
     upstream, work = _setup_upstream_with_head(make_repo, commit, git, "umc")
@@ -225,7 +231,8 @@ def test_upstream_master_blank_when_origin_head_unset(make_repo, commit, git, tm
     packed = work / ".git" / "packed-refs"
     if packed.exists():
         lines = [
-            ln for ln in packed.read_text().splitlines()
+            ln
+            for ln in packed.read_text().splitlines()
             if "refs/remotes/origin/HEAD" not in ln
         ]
         packed.write_text("\n".join(lines) + ("\n" if lines else ""))
@@ -235,6 +242,7 @@ def test_upstream_master_blank_when_origin_head_unset(make_repo, commit, git, tm
 
 
 # --- upstream_same_name tests ---------------------------------------------
+
 
 def test_upstream_same_name_clean(make_repo, commit, git):
     upstream, work = _setup_upstream_with_head(make_repo, commit, git, "usnc")
@@ -280,6 +288,7 @@ def test_upstream_same_name_matches_rev_list(make_repo, commit, git):
 
 
 # --- upstream_missing tests -----------------------------------------------
+
 
 def test_upstream_missing_same_name(make_repo, commit, git):
     """Local feature branch with no matching branch on origin -> None pair."""

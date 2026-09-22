@@ -25,7 +25,9 @@ def discover_repos(root: Path | str, *, skip_submodules: bool = True) -> list[Pa
     if not root.exists():
         return found
 
-    for dirpath, dirnames, _filenames in os.walk(root, followlinks=False, onerror=lambda _e: None):
+    for dirpath, dirnames, _filenames in os.walk(
+        root, followlinks=False, onerror=lambda _e: None
+    ):
         cur = Path(dirpath)
         if _is_repo_root(cur):
             found.append(cur)

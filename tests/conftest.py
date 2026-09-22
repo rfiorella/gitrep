@@ -7,16 +7,20 @@ from pathlib import Path
 import pytest
 
 
-def _git(cwd: Path, *args: str, env_extra: dict | None = None) -> subprocess.CompletedProcess:
+def _git(
+    cwd: Path, *args: str, env_extra: dict | None = None
+) -> subprocess.CompletedProcess:
     env = os.environ.copy()
-    env.update({
-        "GIT_AUTHOR_NAME": "Test",
-        "GIT_AUTHOR_EMAIL": "test@example.com",
-        "GIT_COMMITTER_NAME": "Test",
-        "GIT_COMMITTER_EMAIL": "test@example.com",
-        "GIT_CONFIG_GLOBAL": "/dev/null",
-        "GIT_CONFIG_SYSTEM": "/dev/null",
-    })
+    env.update(
+        {
+            "GIT_AUTHOR_NAME": "Test",
+            "GIT_AUTHOR_EMAIL": "test@example.com",
+            "GIT_COMMITTER_NAME": "Test",
+            "GIT_COMMITTER_EMAIL": "test@example.com",
+            "GIT_CONFIG_GLOBAL": "/dev/null",
+            "GIT_CONFIG_SYSTEM": "/dev/null",
+        }
+    )
     if env_extra:
         env.update(env_extra)
     proc = subprocess.run(
@@ -62,6 +66,7 @@ def git_env_extra() -> dict:
 def make_repo(tmp_path):
     def _factory(name: str, *, initial_branch: str = "main") -> Path:
         return _init_repo(tmp_path / name, initial_branch=initial_branch)
+
     return _factory
 
 

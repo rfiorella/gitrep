@@ -14,17 +14,45 @@ from .report import render_json, render_table
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(prog="gitrep", description="Multi-repo status & mass-fetch manager")
+    p = argparse.ArgumentParser(
+        prog="gitrep", description="Multi-repo status & mass-fetch manager"
+    )
     p.add_argument("--root", default="/code", help="Root dir to scan (default: /code)")
-    p.add_argument("--all", action="store_true", help="Show all repos, not just attention-needing")
+    p.add_argument(
+        "--all", action="store_true", help="Show all repos, not just attention-needing"
+    )
     p.add_argument("--json", action="store_true", help="Emit JSON instead of table")
     p.add_argument("--no-fetch", action="store_true", help="Skip parallel fetch step")
-    p.add_argument("--workers", type=int, default=16, help="Fetch worker count (default 16)")
-    p.add_argument("--fetch-timeout", type=float, default=30.0, help="Per-repo fetch timeout seconds")
-    p.add_argument("--inspect-timeout", type=float, default=10.0, help="Per-repo inspect timeout seconds")
-    p.add_argument("--include-submodules", action="store_true", help="Include submodule .git-file repos")
-    p.add_argument("--pull-clean", action="store_true", help="After listing, prompt to pull repos that are clean and behind")
-    p.add_argument("--show-diff", action="store_true", help="Print git status -s for each dirty repo")
+    p.add_argument(
+        "--workers", type=int, default=16, help="Fetch worker count (default 16)"
+    )
+    p.add_argument(
+        "--fetch-timeout",
+        type=float,
+        default=30.0,
+        help="Per-repo fetch timeout seconds",
+    )
+    p.add_argument(
+        "--inspect-timeout",
+        type=float,
+        default=10.0,
+        help="Per-repo inspect timeout seconds",
+    )
+    p.add_argument(
+        "--include-submodules",
+        action="store_true",
+        help="Include submodule .git-file repos",
+    )
+    p.add_argument(
+        "--pull-clean",
+        action="store_true",
+        help="After listing, prompt to pull repos that are clean and behind",
+    )
+    p.add_argument(
+        "--show-diff",
+        action="store_true",
+        help="Print git status -s for each dirty repo",
+    )
     p.add_argument(
         "--upstream-status",
         action="store_true",
@@ -73,7 +101,9 @@ def main(argv: list[str] | None = None) -> int:
             fetch_all(repos, max_workers=args.workers, timeout=args.fetch_timeout)
 
     statuses = [
-        inspect_repo(p, timeout=args.inspect_timeout, with_upstream=args.upstream_status)
+        inspect_repo(
+            p, timeout=args.inspect_timeout, with_upstream=args.upstream_status
+        )
         for p in repos
     ]
 

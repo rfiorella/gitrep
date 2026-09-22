@@ -34,6 +34,7 @@ def test_filter_excludes_clean():
     out = filter_attention([clean, dirty, behind, stash, err])
     paths = [s.path for s in out]
     from pathlib import Path
+
     assert Path("/clean") not in paths
     for p in ("/dirty", "/behind", "/stash", "/err"):
         assert Path(p) in paths
@@ -44,8 +45,10 @@ def test_render_table_default_filters_clean():
     dirty = _mk("/dirty", dirty=True)
     t = render_table([clean, dirty])
     # rich Table doesn't expose rows directly; use console capture
-    from rich.console import Console
     import io
+
+    from rich.console import Console
+
     c = Console(file=io.StringIO(), width=200, force_terminal=False)
     c.print(t)
     out = c.file.getvalue()
@@ -57,8 +60,10 @@ def test_render_table_show_all_includes_clean():
     clean = _mk("/clean")
     dirty = _mk("/dirty", dirty=True)
     t = render_table([clean, dirty], show_all=True)
-    from rich.console import Console
     import io
+
+    from rich.console import Console
+
     c = Console(file=io.StringIO(), width=200, force_terminal=False)
     c.print(t)
     out = c.file.getvalue()
@@ -91,6 +96,7 @@ def test_render_json_show_all_includes_clean():
 
 # --- upstream-status rendering -------------------------------------------
 
+
 def test_upstream_master_render_table_shows_columns_when_flag_set():
     item = _mk(
         "/u",
@@ -101,8 +107,10 @@ def test_upstream_master_render_table_shows_columns_when_flag_set():
         upstream_same_name_behind=0,
     )
     t = render_table([item], show_upstream=True)
-    from rich.console import Console
     import io
+
+    from rich.console import Console
+
     c = Console(file=io.StringIO(), width=200, force_terminal=False)
     c.print(t)
     out = c.file.getvalue()
@@ -122,8 +130,10 @@ def test_upstream_same_name_render_table_blank_when_missing():
         upstream_same_name_behind=None,
     )
     t = render_table([item], show_upstream=True)
-    from rich.console import Console
     import io
+
+    from rich.console import Console
+
     c = Console(file=io.StringIO(), width=200, force_terminal=False)
     c.print(t)
     out = c.file.getvalue()
@@ -135,8 +145,10 @@ def test_upstream_same_name_render_table_blank_when_missing():
 def test_upstream_missing_render_table_blank_for_all():
     item = _mk("/u", dirty=True)  # all four upstream fields default None
     t = render_table([item], show_upstream=True)
-    from rich.console import Console
     import io
+
+    from rich.console import Console
+
     c = Console(file=io.StringIO(), width=200, force_terminal=False)
     c.print(t)
     out = c.file.getvalue()
@@ -151,8 +163,10 @@ def test_render_table_omits_upstream_columns_when_flag_unset():
         upstream_master_behind=1,
     )
     t = render_table([item])
-    from rich.console import Console
     import io
+
+    from rich.console import Console
+
     c = Console(file=io.StringIO(), width=200, force_terminal=False)
     c.print(t)
     out = c.file.getvalue()

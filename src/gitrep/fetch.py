@@ -30,11 +30,21 @@ def _fetch_one(path: Path, timeout: float) -> FetchResult:
             duration_s=dur,
         )
     except subprocess.TimeoutExpired:
-        return FetchResult(ok=False, stderr=f"timeout after {timeout}s", duration_s=time.monotonic() - t0)
+        return FetchResult(
+            ok=False,
+            stderr=f"timeout after {timeout}s",
+            duration_s=time.monotonic() - t0,
+        )
     except FileNotFoundError as e:
-        return FetchResult(ok=False, stderr=f"git not found: {e}", duration_s=time.monotonic() - t0)
+        return FetchResult(
+            ok=False, stderr=f"git not found: {e}", duration_s=time.monotonic() - t0
+        )
     except Exception as e:
-        return FetchResult(ok=False, stderr=f"{type(e).__name__}: {e}", duration_s=time.monotonic() - t0)
+        return FetchResult(
+            ok=False,
+            stderr=f"{type(e).__name__}: {e}",
+            duration_s=time.monotonic() - t0,
+        )
 
 
 def fetch_all(
@@ -54,5 +64,7 @@ def fetch_all(
             try:
                 results[p] = fut.result()
             except Exception as e:
-                results[p] = FetchResult(ok=False, stderr=f"{type(e).__name__}: {e}", duration_s=0.0)
+                results[p] = FetchResult(
+                    ok=False, stderr=f"{type(e).__name__}: {e}", duration_s=0.0
+                )
     return results
