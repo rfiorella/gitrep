@@ -9,7 +9,7 @@ from rich.console import Console
 
 from .discovery import discover_repos
 from .fetch import fetch_all
-from .inspect import inspect_repo
+from .inspect import RepoStatus, inspect_repo
 from .report import render_json, render_table
 
 
@@ -69,7 +69,7 @@ def _build_parser() -> argparse.ArgumentParser:
     return p
 
 
-def _pull_clean_base_eligible(s) -> bool:
+def _pull_clean_base_eligible(s: RepoStatus) -> bool:
     """Every ``--pull-clean`` condition except the remote-count restriction."""
     return (
         bool(s.behind)

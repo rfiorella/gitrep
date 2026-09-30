@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Iterable
+from pathlib import Path
 
 from rich.table import Table
 
@@ -78,10 +79,8 @@ def render_table(
     return table
 
 
-def _relpath(p, root: str) -> str:
+def _relpath(p: Path | str, root: str) -> str:
     try:
-        from pathlib import Path
-
         return str(Path(p).resolve().relative_to(Path(root).resolve()))
     except (ValueError, OSError):
         return str(p)
