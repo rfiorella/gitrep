@@ -125,3 +125,26 @@ def clone_pair(make_repo):
         return upstream, work
 
     return _factory
+
+
+class _DummyCompleted:
+    returncode = 0
+
+
+@pytest.fixture
+def spy_run(monkeypatch):
+    """Record every ``subprocess.run`` argv; run real git except for ``pull``.
+
+    ``pull`` is never executed; it returns a dummy with ``returncode == 0``.
+    """
+    calls: list[list[str]] = []
+    real_run = subprocess.run
+
+    def _run(cmd, *a, **kw):
+        calls.append(list(cmd))
+        if "pull" in cmd:
+            return _DummyCompleted()
+        return real_run(cmd, *a, **kw)
+
+    monkeypatch.setattr(subprocess, "run", _run)
+    return calls

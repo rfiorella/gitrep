@@ -33,7 +33,7 @@ class _Done:
 
 
 @pytest.fixture
-def spy_run(monkeypatch):
+def fake_run(monkeypatch):
     runs: list[list[str]] = []
 
     def _run(cmd, *_a, **_kw):
@@ -133,13 +133,13 @@ def test_no_repos_message(tmp_path, capsys, monkeypatch):
 # --- --show-diff -----------------------------------------------------------
 
 
-def test_show_diff_runs_status_for_dirty_only(fake_pipeline, spy_run, tmp_path):
+def test_show_diff_runs_status_for_dirty_only(fake_pipeline, fake_run, tmp_path):
     dirty, clean = tmp_path / "dirty", tmp_path / "clean"
     fake_pipeline[dirty] = _status(dirty, dirty=True)
     fake_pipeline[clean] = _status(clean)
     rc = cli_mod.main(["--root", str(tmp_path), "--no-fetch", "--show-diff"])
     assert rc == 0
-    assert spy_run == [["git", "-C", str(dirty), "status", "-s"]]
+    assert fake_run == [["git", "-C", str(dirty), "status", "-s"]]
 
 
 # --- --pull-clean eligibility ----------------------------------------------
@@ -156,7 +156,7 @@ def test_show_diff_runs_status_for_dirty_only(fake_pipeline, spy_run, tmp_path):
     ],
 )
 def test_pull_clean_ineligible(
-    fake_pipeline, spy_run, tmp_path, monkeypatch, capsys, override
+    fake_pipeline, fake_run, tmp_path, monkeypatch, capsys, override
 ):
     p = tmp_path / "r"
     fake_pipeline[p] = _status(p, **override)
@@ -166,11 +166,11 @@ def test_pull_clean_ineligible(
     assert rc == 0
     assert "no clean+behind repos to pull" in capsys.readouterr().out
     assert confirmed == []
-    assert spy_run == []
+    assert fake_run == []
 
 
 def test_pull_clean_pulls_targets_in_order(
-    fake_pipeline, spy_run, tmp_path, monkeypatch
+    fake_pipeline, fake_run, tmp_path, monkeypatch
 ):
     a, b = tmp_path / "a", tmp_path / "b"
     fake_pipeline[a] = _status(a)
@@ -182,14 +182,14 @@ def test_pull_clean_pulls_targets_in_order(
     rc = cli_mod.main(["--root", str(tmp_path), "--no-fetch", "--pull-clean"])
     assert rc == 0
     assert prompts == ["proceed with pull on these repos? [y/N] "]
-    assert spy_run == [
+    assert fake_run == [
         ["git", "-C", str(a), "pull", "--ff-only"],
         ["git", "-C", str(b), "pull", "--ff-only"],
     ]
 
 
 def test_pull_clean_declined_prints_aborted(
-    fake_pipeline, spy_run, tmp_path, monkeypatch, capsys
+    fake_pipeline, fake_run, tmp_path, monkeypatch, capsys
 ):
     p = tmp_path / "r"
     fake_pipeline[p] = _status(p)
@@ -199,4 +199,4 @@ def test_pull_clean_declined_prints_aborted(
     out = capsys.readouterr().out
     assert f"{p} (behind 2)" in out
     assert "aborted" in out
-    assert spy_run == []
+    assert fake_run == []
