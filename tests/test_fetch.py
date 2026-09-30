@@ -45,5 +45,5 @@ def test_fetch_no_remote(make_repo, commit):
     commit(r, "f.txt")
     res = fetch_all([r], timeout=10.0)
     fr = res[r]
-    # `git fetch --all` with no remotes succeeds (no-op) on modern git
-    assert isinstance(fr.ok, bool)
+    # `git fetch --all` with no remotes is a successful no-op
+    assert fr.ok is True
