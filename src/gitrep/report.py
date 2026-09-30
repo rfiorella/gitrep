@@ -10,6 +10,7 @@ from .inspect import RepoStatus
 
 
 def filter_attention(statuses: Iterable[RepoStatus]) -> list[RepoStatus]:
+    """Keep only statuses where ``needs_attention`` is true."""
     return [s for s in statuses if s.needs_attention]
 
 
@@ -27,6 +28,7 @@ def render_table(
     show_upstream: bool = False,
     show_remote: bool = False,
 ) -> Table:
+    """Build a rich table; paths are shown relative to ``root`` when given."""
     rows = list(statuses) if show_all else filter_attention(statuses)
 
     title = f"gitrep ({len(rows)}/{len(statuses)} shown)"
@@ -93,6 +95,7 @@ def render_json(
     show_upstream: bool = False,
     show_remote: bool = False,
 ) -> str:
+    """Serialize statuses as a sorted-key, indented JSON array."""
     rows = list(statuses) if show_all else filter_attention(statuses)
     return json.dumps(
         [

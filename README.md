@@ -6,12 +6,15 @@ attention (dirty, ahead/behind origin, stashed work, or errors).
 
 ## Install
 
-Requires the mamba env `gitrep` (python 3.12, `rich`, `pytest`).
+Requires the mamba env `gitrep` (python 3.12). `environment.yml` creates it
+and installs the package in editable mode:
 
 ```
+mamba env create -f environment.yml
 mamba activate gitrep
-pip install -e .
 ```
+
+Or, in an existing environment: `pip install -e .[dev]`.
 
 This puts the `gitrep` console script on PATH.
 
@@ -58,10 +61,12 @@ gitrep --root /some/other/dir
 | `--no-fetch` | Skip the parallel `git fetch` step |
 | `--workers N` | Fetch worker count (default 16) |
 | `--fetch-timeout S` | Per-repo fetch timeout in seconds (default 30) |
-| `--inspect-timeout S` | Per-repo inspect timeout in seconds (default 5) |
+| `--inspect-timeout S` | Timeout in seconds for each git command run while inspecting a repo (default 10) |
 | `--include-submodules` | Include submodule `.git`-file repos |
 | `--show-diff` | Print `git status -s` for each dirty repo |
-| `--pull-clean` | Prompt to `git pull --ff-only` repos that are clean and behind |
+| `--upstream-status` | Add ahead/behind columns vs `origin/HEAD` and vs `origin/<current-branch>` |
+| `--remote-status` | Add a column with the number of configured remotes |
+| `--pull-clean` | Prompt to `git pull --ff-only` repos that are clean, behind their upstream, not detached, and have exactly one remote |
 
 ## Safety
 
@@ -70,8 +75,10 @@ side effect). All mutating actions (`--pull-clean`) require an explicit
 flag and an interactive confirmation prompt. No push, rebase, merge, or
 commit operations are performed under any flag.
 
-## Tests
+## Tests and linting
 
 ```
 pytest
+ruff check . && ruff format --check .
+mypy
 ```

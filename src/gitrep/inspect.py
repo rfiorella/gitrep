@@ -27,6 +27,7 @@ class RepoStatus:
     def to_dict(
         self, *, include_upstream: bool = False, include_remote: bool = False
     ) -> dict[str, Any]:
+        """JSON-ready dict; upstream and remote fields only when requested."""
         d = asdict(self)
         d["path"] = str(self.path)
         if not include_upstream:
@@ -43,6 +44,7 @@ class RepoStatus:
 
     @property
     def needs_attention(self) -> bool:
+        """True if the repo errored, is dirty, is behind, or has stashes."""
         return bool(self.error or self.dirty or self.behind or self.stash_count)
 
 
