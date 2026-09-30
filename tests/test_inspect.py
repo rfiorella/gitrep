@@ -53,28 +53,15 @@ def test_no_upstream(make_repo, commit):
     assert s.has_upstream is False
 
 
-def _setup_upstream(make_repo, commit, git, name: str):
-    upstream = make_repo(f"{name}-up")
-    commit(upstream, "f.txt")
-    commit(upstream, "g.txt")
-    work = make_repo(name)
-    # configure work as a clone of upstream
-    git(work, "remote", "add", "origin", str(upstream))
-    git(work, "fetch", "-q", "origin")
-    git(work, "checkout", "-q", "-B", "main", "origin/main")
-    git(work, "branch", "--set-upstream-to=origin/main", "main")
-    return upstream, work
-
-
-def test_ahead_behind_clean(make_repo, commit, git):
-    _upstream, work = _setup_upstream(make_repo, commit, git, "ab1")
+def test_ahead_behind_clean(clone_pair):
+    _upstream, work = clone_pair("ab1")
     s = inspect_repo(work)
     assert s.has_upstream is True
     assert s.ahead == 0 and s.behind == 0
 
 
-def test_ahead_only(make_repo, commit, git):
-    _upstream, work = _setup_upstream(make_repo, commit, git, "ahead")
+def test_ahead_only(clone_pair, commit):
+    _upstream, work = clone_pair("ahead")
     commit(work, "h.txt")
     commit(work, "i.txt")
     s = inspect_repo(work)
@@ -82,8 +69,8 @@ def test_ahead_only(make_repo, commit, git):
     assert s.behind == 0
 
 
-def test_behind_only(make_repo, commit, git):
-    upstream, work = _setup_upstream(make_repo, commit, git, "behind")
+def test_behind_only(clone_pair, commit, git):
+    upstream, work = clone_pair("behind")
     commit(upstream, "h.txt")
     commit(upstream, "i.txt")
     commit(upstream, "j.txt")
@@ -93,8 +80,8 @@ def test_behind_only(make_repo, commit, git):
     assert s.behind == 3
 
 
-def test_ahead_and_behind(make_repo, commit, git):
-    upstream, work = _setup_upstream(make_repo, commit, git, "both")
+def test_ahead_and_behind(clone_pair, commit, git):
+    upstream, work = clone_pair("both")
     commit(upstream, "u.txt")
     commit(work, "w.txt")
     git(work, "fetch", "-q", "origin")
@@ -142,47 +129,18 @@ def test_needs_attention_property(make_repo, commit):
     assert s2.needs_attention is True
 
 
-# --- upstream-status helpers ----------------------------------------------
-
-
-def _setup_upstream_with_head(
-    make_repo, commit, git, name: str, *, branch: str = "main"
-):
-    """Set up an upstream + work clone with origin/HEAD pointing at <branch>.
-
-    Returns ``(upstream, work)`` where ``work`` is checked out on ``branch``
-    tracking ``origin/<branch>``.
-    """
-    upstream = make_repo(f"{name}-up", initial_branch=branch)
-    commit(upstream, "f.txt")
-    commit(upstream, "g.txt")
-    work = make_repo(name, initial_branch=branch)
-    git(work, "remote", "add", "origin", str(upstream))
-    git(work, "fetch", "-q", "origin")
-    git(work, "checkout", "-q", "-B", branch, f"origin/{branch}")
-    git(work, "branch", f"--set-upstream-to=origin/{branch}", branch)
-    # Set origin/HEAD explicitly so upstream_status can resolve it.
-    git(
-        work,
-        "symbolic-ref",
-        "refs/remotes/origin/HEAD",
-        f"refs/remotes/origin/{branch}",
-    )
-    return upstream, work
-
-
 # --- upstream_master tests ------------------------------------------------
 
 
-def test_upstream_master_clean(make_repo, commit, git):
-    _upstream, work = _setup_upstream_with_head(make_repo, commit, git, "umc")
+def test_upstream_master_clean(clone_pair):
+    _upstream, work = clone_pair("umc", set_origin_head=True)
     s = inspect_repo(work, with_upstream=True)
     assert s.upstream_master_ahead == 0
     assert s.upstream_master_behind == 0
 
 
-def test_upstream_master_ahead(make_repo, commit, git):
-    _upstream, work = _setup_upstream_with_head(make_repo, commit, git, "uma")
+def test_upstream_master_ahead(clone_pair, commit):
+    _upstream, work = clone_pair("uma", set_origin_head=True)
     commit(work, "h.txt")
     commit(work, "i.txt")
     s = inspect_repo(work, with_upstream=True)
@@ -190,8 +148,8 @@ def test_upstream_master_ahead(make_repo, commit, git):
     assert s.upstream_master_behind == 0
 
 
-def test_upstream_master_behind(make_repo, commit, git):
-    upstream, work = _setup_upstream_with_head(make_repo, commit, git, "umb")
+def test_upstream_master_behind(clone_pair, commit, git):
+    upstream, work = clone_pair("umb", set_origin_head=True)
     commit(upstream, "h.txt")
     commit(upstream, "i.txt")
     commit(upstream, "j.txt")
@@ -201,8 +159,8 @@ def test_upstream_master_behind(make_repo, commit, git):
     assert s.upstream_master_behind == 3
 
 
-def test_upstream_master_ahead_and_behind_matches_rev_list(make_repo, commit, git):
-    upstream, work = _setup_upstream_with_head(make_repo, commit, git, "umab")
+def test_upstream_master_ahead_and_behind_matches_rev_list(clone_pair, commit, git):
+    upstream, work = clone_pair("umab", set_origin_head=True)
     commit(upstream, "u.txt")
     commit(work, "w.txt")
     git(work, "fetch", "-q", "origin")
@@ -244,8 +202,8 @@ def test_upstream_master_blank_when_origin_head_unset(make_repo, commit, git, tm
 # --- upstream_same_name tests ---------------------------------------------
 
 
-def test_upstream_same_name_clean(make_repo, commit, git):
-    upstream, work = _setup_upstream_with_head(make_repo, commit, git, "usnc")
+def test_upstream_same_name_clean(clone_pair, commit, git):
+    upstream, work = clone_pair("usnc", set_origin_head=True)
     # Create a feature branch on upstream first, then check it out in work.
     git(upstream, "checkout", "-q", "-b", "feature")
     commit(upstream, "feat.txt")
@@ -257,8 +215,8 @@ def test_upstream_same_name_clean(make_repo, commit, git):
     assert s.upstream_same_name_behind == 0
 
 
-def test_upstream_same_name_ahead(make_repo, commit, git):
-    upstream, work = _setup_upstream_with_head(make_repo, commit, git, "usna")
+def test_upstream_same_name_ahead(clone_pair, commit, git):
+    upstream, work = clone_pair("usna", set_origin_head=True)
     git(upstream, "checkout", "-q", "-b", "feature")
     commit(upstream, "feat.txt")
     git(work, "fetch", "-q", "origin")
@@ -270,8 +228,8 @@ def test_upstream_same_name_ahead(make_repo, commit, git):
     assert s.upstream_same_name_behind == 0
 
 
-def test_upstream_same_name_matches_rev_list(make_repo, commit, git):
-    upstream, work = _setup_upstream_with_head(make_repo, commit, git, "usnab")
+def test_upstream_same_name_matches_rev_list(clone_pair, commit, git):
+    upstream, work = clone_pair("usnab", set_origin_head=True)
     git(upstream, "checkout", "-q", "-b", "feature")
     commit(upstream, "feat.txt")
     git(work, "fetch", "-q", "origin")
@@ -290,9 +248,9 @@ def test_upstream_same_name_matches_rev_list(make_repo, commit, git):
 # --- upstream_missing tests -----------------------------------------------
 
 
-def test_upstream_missing_same_name(make_repo, commit, git):
+def test_upstream_missing_same_name(clone_pair, commit, git):
     """Local feature branch with no matching branch on origin -> None pair."""
-    _upstream, work = _setup_upstream_with_head(make_repo, commit, git, "usnm")
+    _upstream, work = clone_pair("usnm", set_origin_head=True)
     # Create the feature branch only locally.
     git(work, "checkout", "-q", "-b", "feature-local-only")
     commit(work, "local.txt")
@@ -315,9 +273,9 @@ def test_upstream_missing_no_origin(make_repo, commit):
     assert s.upstream_same_name_behind is None
 
 
-def test_upstream_missing_detached_head(make_repo, commit, git):
+def test_upstream_missing_detached_head(clone_pair, commit, git):
     """Detached HEAD -> all four upstream fields None (no current branch)."""
-    _upstream, work = _setup_upstream_with_head(make_repo, commit, git, "usnd")
+    _upstream, work = clone_pair("usnd", set_origin_head=True)
     commit(work, "extra.txt")
     proc = git(work, "rev-parse", "HEAD~1")
     sha = proc.stdout.strip()
@@ -330,9 +288,9 @@ def test_upstream_missing_detached_head(make_repo, commit, git):
     assert s.upstream_same_name_behind is None
 
 
-def test_upstream_status_default_off(make_repo, commit, git):
+def test_upstream_status_default_off(clone_pair):
     """Without with_upstream=True, the four fields stay None."""
-    _upstream, work = _setup_upstream_with_head(make_repo, commit, git, "off")
+    _upstream, work = clone_pair("off", set_origin_head=True)
     s = inspect_repo(work)  # default with_upstream=False
     assert s.upstream_master_ahead is None
     assert s.upstream_master_behind is None
@@ -340,9 +298,9 @@ def test_upstream_status_default_off(make_repo, commit, git):
     assert s.upstream_same_name_behind is None
 
 
-def test_upstream_status_helper_direct(make_repo, commit, git):
+def test_upstream_status_helper_direct(clone_pair, commit):
     """upstream_status() returns the same four ints as inspect_repo populates."""
-    _upstream, work = _setup_upstream_with_head(make_repo, commit, git, "helper")
+    _upstream, work = clone_pair("helper", set_origin_head=True)
     commit(work, "h.txt")
     ma, mb, sa, sb = upstream_status(work, branch="main")
     assert ma == 1

@@ -94,3 +94,34 @@ def repo_tree(tmp_path):
     (root / "notrepo").mkdir()
     (root / "notrepo" / "file.txt").write_text("hi")
     return root
+
+
+@pytest.fixture
+def clone_pair(make_repo):
+    """Factory for an ``(upstream, work)`` pair; ``work`` tracks ``origin/<branch>``.
+
+    ``upstream`` has two commits. With ``set_origin_head=True``,
+    ``refs/remotes/origin/HEAD`` in ``work`` is pointed at ``origin/<branch>``.
+    """
+
+    def _factory(
+        name: str, *, branch: str = "main", set_origin_head: bool = False
+    ) -> tuple[Path, Path]:
+        upstream = make_repo(f"{name}-up", initial_branch=branch)
+        _commit(upstream, "f.txt")
+        _commit(upstream, "g.txt")
+        work = make_repo(name, initial_branch=branch)
+        _git(work, "remote", "add", "origin", str(upstream))
+        _git(work, "fetch", "-q", "origin")
+        _git(work, "checkout", "-q", "-B", branch, f"origin/{branch}")
+        _git(work, "branch", f"--set-upstream-to=origin/{branch}", branch)
+        if set_origin_head:
+            _git(
+                work,
+                "symbolic-ref",
+                "refs/remotes/origin/HEAD",
+                f"refs/remotes/origin/{branch}",
+            )
+        return upstream, work
+
+    return _factory
