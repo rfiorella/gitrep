@@ -1,0 +1,14 @@
+name: gitrep
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - rich>=13
+  - pytest>=7
+  - pytest-timeout>=2
+  - pytest-cov>=5
+  - ruff>=0.15
+  - mypy>=1.10
+  - pip
+  - pip:
+      - -e .

@@ -5,6 +5,15 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
+from ._git import GIT_ERRORS, describe_error, git_argv
+
+_UPSTREAM_FIELDS = (
+    "upstream_master_ahead",
+    "upstream_master_behind",
+    "upstream_same_name_ahead",
+    "upstream_same_name_behind",
+)
+
 
 @dataclass
 class RepoStatus:
@@ -27,34 +36,81 @@ class RepoStatus:
     def to_dict(
         self, *, include_upstream: bool = False, include_remote: bool = False
     ) -> dict[str, Any]:
+        """JSON-ready dict; upstream and remote fields only when requested."""
         d = asdict(self)
         d["path"] = str(self.path)
         if not include_upstream:
-            for k in (
-                "upstream_master_ahead",
-                "upstream_master_behind",
-                "upstream_same_name_ahead",
-                "upstream_same_name_behind",
-            ):
-                d.pop(k, None)
+            for k in _UPSTREAM_FIELDS:
+                del d[k]
         if not include_remote:
-            d.pop("remote_count", None)
+            del d["remote_count"]
         return d
 
     @property
     def needs_attention(self) -> bool:
+        """True if the repo errored, is dirty, is behind, or has stashes."""
         return bool(self.error or self.dirty or self.behind or self.stash_count)
 
 
 def _run(path: Path, args: list[str], timeout: float) -> tuple[int, str, str]:
     proc = subprocess.run(
-        ["git", "-C", str(path), *args],
+        git_argv(path, *args),
         capture_output=True,
         text=True,
         timeout=timeout,
         check=False,
     )
     return proc.returncode, proc.stdout, proc.stderr
+
+
+def _left_right_counts(path: Path, ref: str, timeout: float) -> tuple[int, int] | None:
+    """Return ``(ahead, behind)`` of HEAD relative to ``ref``.
+
+    Returns None if git fails or prints other than two tokens; raises
+    ValueError if the tokens are not integers.
+    """
+    rc, out, _ = _run(
+        path, ["rev-list", "--left-right", "--count", f"{ref}...HEAD"], timeout
+    )
+    if rc != 0:
+        return None
+    parts = out.split()
+    if len(parts) != 2:
+        return None
+    behind, ahead = int(parts[0]), int(parts[1])
+    return ahead, behind
+
+
+def _count_lines(out: str) -> int:
+    return sum(1 for line in out.splitlines() if line.strip())
+
+
+def _read_head(status: RepoStatus, timeout: float) -> None:
+    """Set ``branch`` and ``detached``; a detached HEAD's branch is its short SHA."""
+    rc, out, _ = _run(status.path, ["rev-parse", "--abbrev-ref", "HEAD"], timeout)
+    if rc != 0:
+        return
+    ref = out.strip()
+    if ref == "HEAD":
+        status.detached = True
+        rc, out, _ = _run(status.path, ["rev-parse", "--short", "HEAD"], timeout)
+        status.branch = out.strip() if rc == 0 else None
+    else:
+        status.branch = ref or None
+
+
+def _read_tracking(status: RepoStatus, timeout: float) -> None:
+    """Set ``has_upstream`` and, if there is one, ``ahead``/``behind`` vs ``@{u}``."""
+    rc, _, _ = _run(
+        status.path,
+        ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"],
+        timeout,
+    )
+    status.has_upstream = rc == 0
+    if status.has_upstream:
+        counts = _left_right_counts(status.path, "@{u}", timeout)
+        if counts is not None:
+            status.ahead, status.behind = counts
 
 
 def upstream_status(
@@ -71,52 +127,35 @@ def upstream_status(
     and reported as ``None`` so the caller can render blank cells.
     """
     path = Path(path)
+    master: tuple[int | None, int | None] = (None, None)
+    same: tuple[int | None, int | None] = (None, None)
 
-    master_ahead: int | None = None
-    master_behind: int | None = None
-    same_ahead: int | None = None
-    same_behind: int | None = None
-
-    def _ab(ref: str) -> tuple[int | None, int | None]:
-        rc, out, _ = _run(
-            path, ["rev-list", "--left-right", "--count", f"{ref}...HEAD"], timeout
-        )
-        if rc != 0:
-            return (None, None)
-        parts = out.split()
-        if len(parts) != 2:
-            return (None, None)
+    def _pair(ref: str) -> tuple[int | None, int | None]:
         try:
-            behind_n = int(parts[0])
-            ahead_n = int(parts[1])
+            return _left_right_counts(path, ref, timeout) or (None, None)
         except ValueError:
             return (None, None)
-        return (ahead_n, behind_n)
 
     try:
-        # Upstream master via origin/HEAD symbolic ref.
         rc, out, _ = _run(path, ["rev-parse", "--abbrev-ref", "origin/HEAD"], timeout)
         if rc == 0:
             master_ref = out.strip()
+            # A non-symbolic origin/HEAD abbreviates to itself.
             if master_ref and master_ref != "origin/HEAD":
-                master_ahead, master_behind = _ab(master_ref)
+                master = _pair(master_ref)
 
-        # Same-name branch on origin (only if we have a non-detached branch).
         if branch:
-            rc, _out, _ = _run(
+            rc, _, _ = _run(
                 path,
                 ["rev-parse", "--verify", "--quiet", f"refs/remotes/origin/{branch}"],
                 timeout,
             )
             if rc == 0:
-                same_ahead, same_behind = _ab(f"origin/{branch}")
-    except subprocess.TimeoutExpired:
-        # leave any unresolved fields as None
-        pass
-    except (OSError, UnicodeDecodeError):
+                same = _pair(f"origin/{branch}")
+    except GIT_ERRORS:
         pass
 
-    return (master_ahead, master_behind, same_ahead, same_behind)
+    return (*master, *same)
 
 
 def inspect_repo(
@@ -127,13 +166,16 @@ def inspect_repo(
 ) -> RepoStatus:
     """Inspect a single repo and return its status.
 
+    ``timeout`` applies to each git command, not to the whole inspection.
+    Git failures are recorded in ``error`` rather than raised.
+
     When ``with_upstream`` is True, additionally populate
     ``upstream_master_*`` and ``upstream_same_name_*`` fields by querying
     ``origin/HEAD`` and ``origin/<branch>``. Detached HEAD or any failure
     leaves the corresponding fields as None.
     """
     path = Path(path)
-    base = RepoStatus(
+    status = RepoStatus(
         path=path,
         branch=None,
         detached=False,
@@ -150,68 +192,39 @@ def inspect_repo(
     try:
         rc, out, err = _run(path, ["rev-parse", "--is-bare-repository"], timeout)
         if rc != 0:
-            base.error = err.strip() or out.strip() or "git rev-parse failed"
-            return base
-        base.bare = out.strip() == "true"
+            status.error = err.strip() or out.strip() or "git rev-parse failed"
+            return status
+        status.bare = out.strip() == "true"
 
         rc, out, _ = _run(path, ["remote"], timeout)
         if rc == 0:
-            base.remote_count = sum(1 for line in out.splitlines() if line.strip())
+            status.remote_count = _count_lines(out)
 
-        rc, out, _ = _run(path, ["rev-parse", "--abbrev-ref", "HEAD"], timeout)
-        if rc == 0:
-            ref = out.strip()
-            if ref == "HEAD":
-                base.detached = True
-                rc2, out2, _ = _run(path, ["rev-parse", "--short", "HEAD"], timeout)
-                base.branch = out2.strip() if rc2 == 0 else None
-            else:
-                base.branch = ref or None
+        _read_head(status, timeout)
 
-        if not base.bare:
+        if not status.bare:
             rc, out, _ = _run(path, ["status", "--porcelain"], timeout)
             if rc == 0:
-                base.dirty = bool(out.strip())
+                status.dirty = bool(out.strip())
 
-        if base.branch and not base.detached:
-            rc, _out, _err = _run(
-                path,
-                ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"],
-                timeout,
-            )
-            base.has_upstream = rc == 0
-            if base.has_upstream:
-                rc, out, _ = _run(
-                    path,
-                    ["rev-list", "--left-right", "--count", "@{u}...HEAD"],
-                    timeout,
-                )
-                if rc == 0:
-                    parts = out.split()
-                    if len(parts) == 2:
-                        base.behind = int(parts[0])
-                        base.ahead = int(parts[1])
+        if status.branch and not status.detached:
+            _read_tracking(status, timeout)
 
         rc, out, _ = _run(path, ["stash", "list"], timeout)
         if rc == 0:
-            base.stash_count = sum(1 for line in out.splitlines() if line.strip())
+            status.stash_count = _count_lines(out)
 
-        if with_upstream and not base.bare:
-            # Detached HEAD -> branch is the short SHA, not a real branch
-            # name; pass None for the branch arg so same-name lookup is
-            # skipped.
-            br = None if base.detached else base.branch
-            ma, mb, sa, sb = upstream_status(path, branch=br, timeout=timeout)
-            base.upstream_master_ahead = ma
-            base.upstream_master_behind = mb
-            base.upstream_same_name_ahead = sa
-            base.upstream_same_name_behind = sb
+        if with_upstream and not status.bare:
+            # When detached, ``branch`` holds a short SHA, not a branch name.
+            branch = None if status.detached else status.branch
+            (
+                status.upstream_master_ahead,
+                status.upstream_master_behind,
+                status.upstream_same_name_ahead,
+                status.upstream_same_name_behind,
+            ) = upstream_status(path, branch=branch, timeout=timeout)
 
-    except subprocess.TimeoutExpired:
-        base.error = f"timeout after {timeout}s"
-    except FileNotFoundError as e:
-        base.error = f"git not found: {e}"
-    except (OSError, UnicodeDecodeError) as e:
-        base.error = f"{type(e).__name__}: {e}"
+    except GIT_ERRORS as e:
+        status.error = describe_error(e, timeout)
 
-    return base
+    return status

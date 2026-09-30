@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+import io
 import json
 from pathlib import Path
+
+from rich.console import Console
+from rich.table import Table
 
 from gitrep.inspect import RepoStatus
 from gitrep.report import filter_attention, render_json, render_table
@@ -25,6 +29,13 @@ def _mk(path="/x", **kw):
     return RepoStatus(**base)
 
 
+def _render(table: Table) -> str:
+    """Plain-text table output (rich exposes no public row accessor)."""
+    c = Console(file=io.StringIO(), width=200, force_terminal=False)
+    c.print(table)
+    return c.file.getvalue()
+
+
 def test_filter_excludes_clean():
     clean = _mk("/clean")
     dirty = _mk("/dirty", dirty=True)
@@ -33,8 +44,6 @@ def test_filter_excludes_clean():
     err = _mk("/err", error="boom")
     out = filter_attention([clean, dirty, behind, stash, err])
     paths = [s.path for s in out]
-    from pathlib import Path
-
     assert Path("/clean") not in paths
     for p in ("/dirty", "/behind", "/stash", "/err"):
         assert Path(p) in paths
@@ -43,15 +52,7 @@ def test_filter_excludes_clean():
 def test_render_table_default_filters_clean():
     clean = _mk("/clean")
     dirty = _mk("/dirty", dirty=True)
-    t = render_table([clean, dirty])
-    # rich Table doesn't expose rows directly; use console capture
-    import io
-
-    from rich.console import Console
-
-    c = Console(file=io.StringIO(), width=200, force_terminal=False)
-    c.print(t)
-    out = c.file.getvalue()
+    out = _render(render_table([clean, dirty]))
     assert "/dirty" in out
     assert "/clean" not in out
 
@@ -59,14 +60,7 @@ def test_render_table_default_filters_clean():
 def test_render_table_show_all_includes_clean():
     clean = _mk("/clean")
     dirty = _mk("/dirty", dirty=True)
-    t = render_table([clean, dirty], show_all=True)
-    import io
-
-    from rich.console import Console
-
-    c = Console(file=io.StringIO(), width=200, force_terminal=False)
-    c.print(t)
-    out = c.file.getvalue()
+    out = _render(render_table([clean, dirty], show_all=True))
     assert "/clean" in out
     assert "/dirty" in out
 
@@ -106,14 +100,7 @@ def test_upstream_master_render_table_shows_columns_when_flag_set():
         upstream_same_name_ahead=0,
         upstream_same_name_behind=0,
     )
-    t = render_table([item], show_upstream=True)
-    import io
-
-    from rich.console import Console
-
-    c = Console(file=io.StringIO(), width=200, force_terminal=False)
-    c.print(t)
-    out = c.file.getvalue()
+    out = _render(render_table([item], show_upstream=True))
     assert "vs master (A/B)" in out
     assert "vs same-name (A/B)" in out
     assert "2/1" in out
@@ -129,14 +116,7 @@ def test_upstream_same_name_render_table_blank_when_missing():
         upstream_same_name_ahead=None,
         upstream_same_name_behind=None,
     )
-    t = render_table([item], show_upstream=True)
-    import io
-
-    from rich.console import Console
-
-    c = Console(file=io.StringIO(), width=200, force_terminal=False)
-    c.print(t)
-    out = c.file.getvalue()
+    out = _render(render_table([item], show_upstream=True))
     assert "1/0" in out
     # The same-name cell must NOT render "None"; it should be empty.
     assert "None" not in out
@@ -144,14 +124,7 @@ def test_upstream_same_name_render_table_blank_when_missing():
 
 def test_upstream_missing_render_table_blank_for_all():
     item = _mk("/u", dirty=True)  # all four upstream fields default None
-    t = render_table([item], show_upstream=True)
-    import io
-
-    from rich.console import Console
-
-    c = Console(file=io.StringIO(), width=200, force_terminal=False)
-    c.print(t)
-    out = c.file.getvalue()
+    out = _render(render_table([item], show_upstream=True))
     assert "None" not in out
 
 
@@ -162,14 +135,7 @@ def test_render_table_omits_upstream_columns_when_flag_unset():
         upstream_master_ahead=2,
         upstream_master_behind=1,
     )
-    t = render_table([item])
-    import io
-
-    from rich.console import Console
-
-    c = Console(file=io.StringIO(), width=200, force_terminal=False)
-    c.print(t)
-    out = c.file.getvalue()
+    out = _render(render_table([item]))
     assert "vs master" not in out
     assert "vs same-name" not in out
 
@@ -219,28 +185,14 @@ def test_render_json_omits_upstream_keys_when_flag_unset():
 
 def test_render_table_shows_remotes_column_when_flag_set():
     item = _mk("/r", dirty=True, remote_count=3)
-    t = render_table([item], show_remote=True)
-    import io
-
-    from rich.console import Console
-
-    c = Console(file=io.StringIO(), width=200, force_terminal=False)
-    c.print(t)
-    out = c.file.getvalue()
+    out = _render(render_table([item], show_remote=True))
     assert "remotes" in out
     assert "3" in out
 
 
 def test_render_table_omits_remotes_column_when_flag_unset():
     item = _mk("/r", dirty=True, remote_count=3)
-    t = render_table([item])
-    import io
-
-    from rich.console import Console
-
-    c = Console(file=io.StringIO(), width=200, force_terminal=False)
-    c.print(t)
-    out = c.file.getvalue()
+    out = _render(render_table([item]))
     assert "remotes" not in out
 
 

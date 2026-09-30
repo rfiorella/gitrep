@@ -3,24 +3,12 @@ from __future__ import annotations
 from gitrep.fetch import fetch_all
 
 
-def _clone_pair(make_repo, commit, git, name: str):
-    upstream = make_repo(f"{name}-up")
-    commit(upstream, "f.txt")
-    commit(upstream, "g.txt")
-    work = make_repo(name)
-    git(work, "remote", "add", "origin", str(upstream))
-    git(work, "fetch", "-q", "origin")
-    git(work, "checkout", "-q", "-B", "main", "origin/main")
-    git(work, "branch", "--set-upstream-to=origin/main", "main")
-    return upstream, work
-
-
 def test_fetch_all_empty():
     assert fetch_all([]) == {}
 
 
-def test_fetch_all_success(make_repo, commit, git):
-    pairs = [_clone_pair(make_repo, commit, git, f"r{i}") for i in range(3)]
+def test_fetch_all_success(clone_pair):
+    pairs = [clone_pair(f"r{i}") for i in range(3)]
     repos = [w for _, w in pairs]
     res = fetch_all(repos, max_workers=4, timeout=10.0)
     assert set(res.keys()) == set(repos)
@@ -29,8 +17,8 @@ def test_fetch_all_success(make_repo, commit, git):
         assert fr.duration_s >= 0
 
 
-def test_fetch_one_bogus_does_not_abort(make_repo, commit, git, tmp_path):
-    _upstream, work = _clone_pair(make_repo, commit, git, "good")
+def test_fetch_one_bogus_does_not_abort(clone_pair, make_repo, commit, git, tmp_path):
+    _upstream, work = clone_pair("good")
     bad = make_repo("bad")
     commit(bad, "f.txt")
     git(bad, "remote", "add", "origin", str(tmp_path / "nonexistent"))
@@ -45,5 +33,5 @@ def test_fetch_no_remote(make_repo, commit):
     commit(r, "f.txt")
     res = fetch_all([r], timeout=10.0)
     fr = res[r]
-    # `git fetch --all` with no remotes succeeds (no-op) on modern git
-    assert isinstance(fr.ok, bool)
+    # `git fetch --all` with no remotes is a successful no-op
+    assert fr.ok is True

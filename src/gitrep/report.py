@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Iterable
+from pathlib import Path
 
 from rich.table import Table
 
@@ -9,13 +10,34 @@ from .inspect import RepoStatus
 
 
 def filter_attention(statuses: Iterable[RepoStatus]) -> list[RepoStatus]:
+    """Keep only statuses where ``needs_attention`` is true."""
     return [s for s in statuses if s.needs_attention]
+
+
+def _select(statuses: list[RepoStatus], show_all: bool) -> list[RepoStatus]:
+    return list(statuses) if show_all else filter_attention(statuses)
 
 
 def _ab_cell(ahead: int | None, behind: int | None) -> str:
     if ahead is None or behind is None:
         return ""
     return f"{ahead}/{behind}"
+
+
+def _count_cell(n: int, color: str) -> str:
+    return f"[{color}]{n}[/{color}]" if n else "0"
+
+
+def _note(s: RepoStatus) -> str:
+    if s.error:
+        return f"[red]error: {s.error}[/red]"
+    if not s.has_upstream and not s.detached and not s.bare:
+        return "[yellow]no upstream[/yellow]"
+    if s.detached:
+        return "[yellow]detached[/yellow]"
+    if s.bare:
+        return "[dim]bare[/dim]"
+    return ""
 
 
 def render_table(
@@ -26,7 +48,8 @@ def render_table(
     show_upstream: bool = False,
     show_remote: bool = False,
 ) -> Table:
-    rows = list(statuses) if show_all else filter_attention(statuses)
+    """Build a rich table; paths are shown relative to ``root`` when given."""
+    rows = _select(statuses, show_all)
 
     title = f"gitrep ({len(rows)}/{len(statuses)} shown)"
     if root:
@@ -46,25 +69,14 @@ def render_table(
     table.add_column("note")
 
     for s in rows:
-        if s.error:
-            note = f"[red]error: {s.error}[/red]"
-        elif not s.has_upstream and not s.detached and not s.bare:
-            note = "[yellow]no upstream[/yellow]"
-        elif s.detached:
-            note = "[yellow]detached[/yellow]"
-        elif s.bare:
-            note = "[dim]bare[/dim]"
-        else:
-            note = ""
-
-        repo_str = str(s.path) if root is None else _relpath(s.path, root)
-        branch = s.branch or "-"
-        dirty_cell = "[red]*[/red]" if s.dirty else ""
-        ahead_cell = f"[green]{s.ahead}[/green]" if s.ahead else "0"
-        behind_cell = f"[yellow]{s.behind}[/yellow]" if s.behind else "0"
-        stash_cell = f"[cyan]{s.stash_count}[/cyan]" if s.stash_count else "0"
-
-        cells = [repo_str, branch, dirty_cell, ahead_cell, behind_cell, stash_cell]
+        cells = [
+            str(s.path) if root is None else _relpath(s.path, root),
+            s.branch or "-",
+            "[red]*[/red]" if s.dirty else "",
+            _count_cell(s.ahead, "green"),
+            _count_cell(s.behind, "yellow"),
+            _count_cell(s.stash_count, "cyan"),
+        ]
         if show_remote:
             cells.append(str(s.remote_count))
         if show_upstream:
@@ -72,16 +84,14 @@ def render_table(
             cells.append(
                 _ab_cell(s.upstream_same_name_ahead, s.upstream_same_name_behind)
             )
-        cells.append(note)
+        cells.append(_note(s))
         table.add_row(*cells)
 
     return table
 
 
-def _relpath(p, root: str) -> str:
+def _relpath(p: Path | str, root: str) -> str:
     try:
-        from pathlib import Path
-
         return str(Path(p).resolve().relative_to(Path(root).resolve()))
     except (ValueError, OSError):
         return str(p)
@@ -94,11 +104,11 @@ def render_json(
     show_upstream: bool = False,
     show_remote: bool = False,
 ) -> str:
-    rows = list(statuses) if show_all else filter_attention(statuses)
+    """Serialize statuses as a sorted-key, indented JSON array."""
     return json.dumps(
         [
             s.to_dict(include_remote=show_remote, include_upstream=show_upstream)
-            for s in rows
+            for s in _select(statuses, show_all)
         ],
         indent=2,
         sort_keys=True,

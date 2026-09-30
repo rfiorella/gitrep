@@ -6,21 +6,20 @@ from pathlib import Path
 
 import pytest
 
+_GIT_ENV = {
+    "GIT_AUTHOR_NAME": "Test",
+    "GIT_AUTHOR_EMAIL": "test@example.com",
+    "GIT_COMMITTER_NAME": "Test",
+    "GIT_COMMITTER_EMAIL": "test@example.com",
+    "GIT_CONFIG_GLOBAL": "/dev/null",
+    "GIT_CONFIG_SYSTEM": "/dev/null",
+}
+
 
 def _git(
     cwd: Path, *args: str, env_extra: dict | None = None
 ) -> subprocess.CompletedProcess:
-    env = os.environ.copy()
-    env.update(
-        {
-            "GIT_AUTHOR_NAME": "Test",
-            "GIT_AUTHOR_EMAIL": "test@example.com",
-            "GIT_COMMITTER_NAME": "Test",
-            "GIT_COMMITTER_EMAIL": "test@example.com",
-            "GIT_CONFIG_GLOBAL": "/dev/null",
-            "GIT_CONFIG_SYSTEM": "/dev/null",
-        }
-    )
+    env = {**os.environ, **_GIT_ENV}
     if env_extra:
         env.update(env_extra)
     proc = subprocess.run(
@@ -48,18 +47,6 @@ def _commit(repo: Path, name: str, content: str = "x", message: str = "msg") -> 
     f.write_text(content)
     _git(repo, "add", name)
     _git(repo, "commit", "-q", "-m", message)
-
-
-@pytest.fixture
-def git_env_extra() -> dict:
-    return {
-        "GIT_AUTHOR_NAME": "Test",
-        "GIT_AUTHOR_EMAIL": "test@example.com",
-        "GIT_COMMITTER_NAME": "Test",
-        "GIT_COMMITTER_EMAIL": "test@example.com",
-        "GIT_CONFIG_GLOBAL": "/dev/null",
-        "GIT_CONFIG_SYSTEM": "/dev/null",
-    }
 
 
 @pytest.fixture
@@ -107,3 +94,57 @@ def repo_tree(tmp_path):
     (root / "notrepo").mkdir()
     (root / "notrepo" / "file.txt").write_text("hi")
     return root
+
+
+@pytest.fixture
+def clone_pair(make_repo):
+    """Factory for an ``(upstream, work)`` pair; ``work`` tracks ``origin/<branch>``.
+
+    ``upstream`` has two commits. With ``set_origin_head=True``,
+    ``refs/remotes/origin/HEAD`` in ``work`` is pointed at ``origin/<branch>``.
+    """
+
+    def _factory(
+        name: str, *, branch: str = "main", set_origin_head: bool = False
+    ) -> tuple[Path, Path]:
+        upstream = make_repo(f"{name}-up", initial_branch=branch)
+        _commit(upstream, "f.txt")
+        _commit(upstream, "g.txt")
+        work = make_repo(name, initial_branch=branch)
+        _git(work, "remote", "add", "origin", str(upstream))
+        _git(work, "fetch", "-q", "origin")
+        _git(work, "checkout", "-q", "-B", branch, f"origin/{branch}")
+        _git(work, "branch", f"--set-upstream-to=origin/{branch}", branch)
+        if set_origin_head:
+            _git(
+                work,
+                "symbolic-ref",
+                "refs/remotes/origin/HEAD",
+                f"refs/remotes/origin/{branch}",
+            )
+        return upstream, work
+
+    return _factory
+
+
+class _DummyCompleted:
+    returncode = 0
+
+
+@pytest.fixture
+def spy_run(monkeypatch):
+    """Record every ``subprocess.run`` argv; run real git except for ``pull``.
+
+    ``pull`` is never executed; it returns a dummy with ``returncode == 0``.
+    """
+    calls: list[list[str]] = []
+    real_run = subprocess.run
+
+    def _run(cmd, *a, **kw):
+        calls.append(list(cmd))
+        if "pull" in cmd:
+            return _DummyCompleted()
+        return real_run(cmd, *a, **kw)
+
+    monkeypatch.setattr(subprocess, "run", _run)
+    return calls
