@@ -6,21 +6,20 @@ from pathlib import Path
 
 import pytest
 
+_GIT_ENV = {
+    "GIT_AUTHOR_NAME": "Test",
+    "GIT_AUTHOR_EMAIL": "test@example.com",
+    "GIT_COMMITTER_NAME": "Test",
+    "GIT_COMMITTER_EMAIL": "test@example.com",
+    "GIT_CONFIG_GLOBAL": "/dev/null",
+    "GIT_CONFIG_SYSTEM": "/dev/null",
+}
+
 
 def _git(
     cwd: Path, *args: str, env_extra: dict | None = None
 ) -> subprocess.CompletedProcess:
-    env = os.environ.copy()
-    env.update(
-        {
-            "GIT_AUTHOR_NAME": "Test",
-            "GIT_AUTHOR_EMAIL": "test@example.com",
-            "GIT_COMMITTER_NAME": "Test",
-            "GIT_COMMITTER_EMAIL": "test@example.com",
-            "GIT_CONFIG_GLOBAL": "/dev/null",
-            "GIT_CONFIG_SYSTEM": "/dev/null",
-        }
-    )
+    env = {**os.environ, **_GIT_ENV}
     if env_extra:
         env.update(env_extra)
     proc = subprocess.run(
@@ -48,18 +47,6 @@ def _commit(repo: Path, name: str, content: str = "x", message: str = "msg") -> 
     f.write_text(content)
     _git(repo, "add", name)
     _git(repo, "commit", "-q", "-m", message)
-
-
-@pytest.fixture
-def git_env_extra() -> dict:
-    return {
-        "GIT_AUTHOR_NAME": "Test",
-        "GIT_AUTHOR_EMAIL": "test@example.com",
-        "GIT_COMMITTER_NAME": "Test",
-        "GIT_COMMITTER_EMAIL": "test@example.com",
-        "GIT_CONFIG_GLOBAL": "/dev/null",
-        "GIT_CONFIG_SYSTEM": "/dev/null",
-    }
 
 
 @pytest.fixture
