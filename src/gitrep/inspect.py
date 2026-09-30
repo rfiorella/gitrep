@@ -83,6 +83,34 @@ def _count_lines(out: str) -> int:
     return sum(1 for line in out.splitlines() if line.strip())
 
 
+def _read_head(status: RepoStatus, timeout: float) -> None:
+    """Set ``branch`` and ``detached``; a detached HEAD's branch is its short SHA."""
+    rc, out, _ = _run(status.path, ["rev-parse", "--abbrev-ref", "HEAD"], timeout)
+    if rc != 0:
+        return
+    ref = out.strip()
+    if ref == "HEAD":
+        status.detached = True
+        rc, out, _ = _run(status.path, ["rev-parse", "--short", "HEAD"], timeout)
+        status.branch = out.strip() if rc == 0 else None
+    else:
+        status.branch = ref or None
+
+
+def _read_tracking(status: RepoStatus, timeout: float) -> None:
+    """Set ``has_upstream`` and, if there is one, ``ahead``/``behind`` vs ``@{u}``."""
+    rc, _, _ = _run(
+        status.path,
+        ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"],
+        timeout,
+    )
+    status.has_upstream = rc == 0
+    if status.has_upstream:
+        counts = _left_right_counts(status.path, "@{u}", timeout)
+        if counts is not None:
+            status.ahead, status.behind = counts
+
+
 def upstream_status(
     path: Path | str,
     *,
@@ -170,15 +198,7 @@ def inspect_repo(
         if rc == 0:
             status.remote_count = _count_lines(out)
 
-        rc, out, _ = _run(path, ["rev-parse", "--abbrev-ref", "HEAD"], timeout)
-        if rc == 0:
-            ref = out.strip()
-            if ref == "HEAD":
-                status.detached = True
-                rc, out, _ = _run(path, ["rev-parse", "--short", "HEAD"], timeout)
-                status.branch = out.strip() if rc == 0 else None
-            else:
-                status.branch = ref or None
+        _read_head(status, timeout)
 
         if not status.bare:
             rc, out, _ = _run(path, ["status", "--porcelain"], timeout)
@@ -186,16 +206,7 @@ def inspect_repo(
                 status.dirty = bool(out.strip())
 
         if status.branch and not status.detached:
-            rc, _, _ = _run(
-                path,
-                ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"],
-                timeout,
-            )
-            status.has_upstream = rc == 0
-            if status.has_upstream:
-                counts = _left_right_counts(path, "@{u}", timeout)
-                if counts is not None:
-                    status.ahead, status.behind = counts
+            _read_tracking(status, timeout)
 
         rc, out, _ = _run(path, ["stash", "list"], timeout)
         if rc == 0:
