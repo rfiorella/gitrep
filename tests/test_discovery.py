@@ -27,7 +27,7 @@ def test_does_not_descend_into_repo_worktree(tmp_path, make_repo, commit):
     root.mkdir()
     outer = make_repo("root/outer")
     commit(outer, "f.txt")
-    # create a `.git`-named subdir-look-alike inside outer's worktree; should NOT be re-walked
+    # a plain subdir inside outer's worktree must not be walked into
     (outer / "subdir").mkdir()
     (outer / "subdir" / "x.txt").write_text("x")
     repos = discover_repos(root)

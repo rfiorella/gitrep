@@ -347,8 +347,8 @@ def test_upstream_status_helper_direct(make_repo, commit, git):
     ma, mb, sa, sb = upstream_status(work, branch="main")
     assert ma == 1
     assert mb == 0
-    # No same-name branch on origin called "main"... wait, there IS one.
-    # origin/main exists, so same-name resolves equal to master in this case.
+    # origin/HEAD points at origin/main, so the same-name pair equals the
+    # master pair here.
     assert sa == 1
     assert sb == 0
 
