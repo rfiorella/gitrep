@@ -1,0 +1,50 @@
+[
+  {
+    "ahead": 2,
+    "bare": false,
+    "behind": 0,
+    "branch": "main",
+    "detached": false,
+    "dirty": true,
+    "error": null,
+    "has_upstream": true,
+    "path": "/root/dirty",
+    "stash_count": 1
+  },
+  {
+    "ahead": 0,
+    "bare": false,
+    "behind": 3,
+    "branch": "main",
+    "detached": false,
+    "dirty": false,
+    "error": null,
+    "has_upstream": true,
+    "path": "/root/behind",
+    "stash_count": 0
+  },
+  {
+    "ahead": 0,
+    "bare": false,
+    "behind": 0,
+    "branch": null,
+    "detached": false,
+    "dirty": false,
+    "error": "fatal: bad",
+    "has_upstream": true,
+    "path": "/root/broken",
+    "stash_count": 0
+  },
+  {
+    "ahead": 0,
+    "bare": false,
+    "behind": 0,
+    "branch": "abc1234",
+    "detached": true,
+    "dirty": false,
+    "error": null,
+    "has_upstream": false,
+    "path": "/root/detached",
+    "stash_count": 2
+  }
+]
