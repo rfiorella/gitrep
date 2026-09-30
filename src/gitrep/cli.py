@@ -7,6 +7,7 @@ from pathlib import Path
 
 from rich.console import Console
 
+from ._git import git_argv
 from .discovery import discover_repos
 from .fetch import fetch_all
 from .inspect import RepoStatus, inspect_repo
@@ -117,7 +118,7 @@ def _show_diff(console: Console, statuses: list[RepoStatus]) -> None:
     for s in statuses:
         if s.dirty:
             console.rule(str(s.path))
-            subprocess.run(["git", "-C", str(s.path), "status", "-s"], check=False)
+            subprocess.run(git_argv(s.path, "status", "-s"), check=False)
 
 
 def _pull_clean(console: Console, statuses: list[RepoStatus]) -> None:
@@ -151,7 +152,7 @@ def _pull_clean(console: Console, statuses: list[RepoStatus]) -> None:
         return
     for s in targets:
         console.rule(str(s.path))
-        subprocess.run(["git", "-C", str(s.path), "pull", "--ff-only"], check=False)
+        subprocess.run(git_argv(s.path, "pull", "--ff-only"), check=False)
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -11,6 +11,8 @@ from concurrent.futures import (
 from dataclasses import dataclass
 from pathlib import Path
 
+from ._git import GIT_ERRORS, describe_error, git_argv
+
 
 @dataclass
 class FetchResult:
@@ -23,34 +25,23 @@ def _fetch_one(path: Path, timeout: float) -> FetchResult:
     t0 = time.monotonic()
     try:
         proc = subprocess.run(
-            ["git", "-C", str(path), "fetch", "--all", "--prune", "--quiet"],
+            git_argv(path, "fetch", "--all", "--prune", "--quiet"),
             capture_output=True,
             text=True,
             timeout=timeout,
             check=False,
         )
-        dur = time.monotonic() - t0
-        return FetchResult(
-            ok=(proc.returncode == 0),
-            stderr=proc.stderr.strip(),
-            duration_s=dur,
-        )
-    except subprocess.TimeoutExpired:
+    except GIT_ERRORS as e:
         return FetchResult(
             ok=False,
-            stderr=f"timeout after {timeout}s",
+            stderr=describe_error(e, timeout),
             duration_s=time.monotonic() - t0,
         )
-    except FileNotFoundError as e:
-        return FetchResult(
-            ok=False, stderr=f"git not found: {e}", duration_s=time.monotonic() - t0
-        )
-    except (OSError, UnicodeDecodeError) as e:
-        return FetchResult(
-            ok=False,
-            stderr=f"{type(e).__name__}: {e}",
-            duration_s=time.monotonic() - t0,
-        )
+    return FetchResult(
+        ok=proc.returncode == 0,
+        stderr=proc.stderr.strip(),
+        duration_s=time.monotonic() - t0,
+    )
 
 
 def fetch_all(

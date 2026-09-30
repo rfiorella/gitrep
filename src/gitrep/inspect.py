@@ -5,6 +5,8 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
+from ._git import GIT_ERRORS, describe_error, git_argv
+
 _UPSTREAM_FIELDS = (
     "upstream_master_ahead",
     "upstream_master_behind",
@@ -52,7 +54,7 @@ class RepoStatus:
 
 def _run(path: Path, args: list[str], timeout: float) -> tuple[int, str, str]:
     proc = subprocess.run(
-        ["git", "-C", str(path), *args],
+        git_argv(path, *args),
         capture_output=True,
         text=True,
         timeout=timeout,
@@ -150,7 +152,7 @@ def upstream_status(
             )
             if rc == 0:
                 same = _pair(f"origin/{branch}")
-    except (subprocess.TimeoutExpired, OSError, UnicodeDecodeError):
+    except GIT_ERRORS:
         pass
 
     return (*master, *same)
@@ -222,11 +224,7 @@ def inspect_repo(
                 status.upstream_same_name_behind,
             ) = upstream_status(path, branch=branch, timeout=timeout)
 
-    except subprocess.TimeoutExpired:
-        status.error = f"timeout after {timeout}s"
-    except FileNotFoundError as e:
-        status.error = f"git not found: {e}"
-    except (OSError, UnicodeDecodeError) as e:
-        status.error = f"{type(e).__name__}: {e}"
+    except GIT_ERRORS as e:
+        status.error = describe_error(e, timeout)
 
     return status
