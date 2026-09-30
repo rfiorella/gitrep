@@ -1,6 +1,6 @@
 # Test change proposals — gitrep
 
-Nothing in this file has been applied. Approve or reject each entry by ID.
+Status: **all entries (T1–T5, P1–P7) were approved and applied** on `refactor-cleanup`, each in its own `test:` commit.
 
 ## New characterization tests (T): proposed before the high-risk refactor steps
 

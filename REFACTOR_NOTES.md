@@ -1,6 +1,6 @@
 # Refactor notes — gitrep
 
-Baseline commit: `9e0809b`. This file is filled in during Phase 2; the wrap-up sections are still empty.
+Baseline commit: `9e0809b`. Branch: `refactor-cleanup`. Phase 2 is complete.
 
 ## Bugs found (not fixed; behavior left as-is)
 
@@ -61,22 +61,88 @@ B1–B3 were reproduced against throwaway repos on 2026-09-29. B4 and B6 come fr
   `inspect_repo` and `render_table` can't be reached through the CLI. That code is only usable through the
   library API. This is an observation, not necessarily a bug.
 
+### B8: `render_table` treats `root=""` inconsistently (found in Phase 2)
+- **Where:** `report.py`. The title uses `if root:`, but the repo column uses `root is None`.
+- **Symptom:** `render_table(..., root="")` gives a title with no root suffix, while paths are shown relative
+  to the current directory. The CLI always passes a non-empty root, so it is unaffected.
+- **Suggested fix:** use `if root:` in both places.
+
 ## What changed per module
-_(Phase 2)_
+
+All CLI output was checked end to end. I ran 10 flag combinations (table, `--all`, a real fetch,
+`--json` with and without extras, `--include-submodules`, `--show-diff`, `--pull-clean` with `n` on stdin,
+`--help`, a missing root) against a scratch repo tree, using both a `9e0809b` worktree and the branch head.
+Stdout, stderr, and exit codes were **byte-identical**.
+
+- **`_git.py` (new, private):** `git_argv`, `GIT_ERRORS`, `describe_error`. These replace four hand-built
+  argv lists and two copies of the exception-to-message mapping.
+- **`discovery.py`:** 42 → 23 lines. Inlined the one-line helpers; dropped the dead `is_file` branch, the
+  redundant `exists()` check, and the default `os.walk` arguments. The docstring now states the pruning
+  behavior (B1).
+- **`fetch.py`:** 76 → 53 lines. `_fetch_one` has one error return. Removed the unreachable
+  `CancelledError`/`BrokenExecutor` handler. `fetch_all` is a dict comprehension.
+- **`inspect.py`:** one `_left_right_counts` parser replaces two copies; it still raises `ValueError` in
+  `inspect_repo` (B6 pinned). Added `_read_head`, `_read_tracking`, `_count_lines`, and `_UPSTREAM_FIELDS`.
+  The two swallowing excepts are merged; `base` is renamed to `status`. The `inspect_repo` docstring
+  documents that the timeout applies per command. Complexity of `inspect_repo`: 16 → 9.
+- **`report.py`:** added `_select` (shared by table and JSON), `_note`, and `_count_cell`. The `Path` import
+  moved to the top. Added docstrings. `render_table` complexity: 11 → 7.
+- **`cli.py`:** `main` is split into `_render`, `_show_diff`, and `_pull_clean`. Complexity of `main`: 16 → ≤7
+  (the largest function in `cli.py` is now `_pull_clean`, at 8). Added type hints.
+- **Tooling:** ruff config (py310; E/F/W/I/B/UP/SIM/RUF/C4/PIE/RET), `mypy --strict` on `src/`, and dev
+  extras (`mypy`, `pytest-cov`, `ruff`). The lint CI now also runs `ruff format --check` and `mypy`. Added
+  `environment.yml`.
+- **README:** corrected the `--inspect-timeout` default and meaning, and documented `--upstream-status`,
+  `--remote-status`, and the `--pull-clean` eligibility rules.
+- **Tests (all approved entries):** P1 (untracked `.pyc` files); T1–T5 (66 new tests, including golden
+  output snapshots in `tests/data/`); P2–P7 (cleanups with unchanged test and assert counts).
 
 ## Smells deliberately left alone
-_(Phase 2)_
+
+- **B1–B8 behavior issues:** left unfixed on purpose; each needs its own fix commit. B2 (fetch failures
+  hidden) and B3 (non-JSON text in `--json`) are the most user-visible. See "Proposed breaking changes" in
+  REFACTOR_PLAN.md.
+- **`--inspect-timeout` help text** still says "per-repo" (B4), because `--help` output is frozen. The README
+  and docstring are now correct.
+- **The inspect timeout defaults disagree:** 5.0 in `inspect_repo`/`upstream_status` and 10.0 in the CLI.
+  Changing either would change behavior.
+- **`upstream_status` returns a bare 4-tuple.** Tests unpack it; the `NamedTuple` idea is still listed as a
+  proposed change.
+- **The argparse defaults (`/code`, 16, 30.0, 10.0) are inline literals.** Each is used once, so constants
+  would add indirection without removing duplication.
+- **`print()` for JSON in `cli._render`:** intentional, because rich must not re-highlight JSON. There is no
+  print-as-logging anywhere, so no `logging` was added.
+- **`inspect._run` vs `fetch._fetch_one`:** both call `subprocess.run`, but fetch needs the raw
+  `CompletedProcess` and its own timing, so they were not merged.
+- **Source line count went up (626 → 646)** even though the statement count went down (333 → 319). The
+  increase is docstrings and small named helpers.
+- **The golden tests depend on rich's rendering.** A rich upgrade may require regenerating them with
+  `GITREP_REGEN_GOLDEN=1`, after confirming the diff is only cosmetic.
 
 ## Before / after numbers
 
 | metric | before (`9e0809b`) | after |
 |---|---|---|
-| src lines (`wc -l`) | 626 | |
-| src statements | 333 | |
-| tests | 76 passed | |
-| coverage (line+branch) | 88% | |
-| `ruff check` (default rules) | 0 | |
-| `ruff format --check` | clean | |
-| `mypy` (default) | 0 | |
-| `mypy --strict` | 2 | |
-| max cyclomatic complexity | 16 (`cli.main`, `inspect_repo`) | |
+| src lines (`wc -l`) | 626 | 646 |
+| src statements | 333 | 319 |
+| test lines | 1299 | 1779 |
+| tests | 76 passed | 142 passed |
+| coverage (line+branch) | 88% | 99% (the only miss is `if __name__ == "__main__"`) |
+| `ruff check` (default rules) | 0 | 0 |
+| `ruff check` (new stricter config) | 7 (tests) | 0 |
+| `ruff format --check` | clean | clean |
+| `mypy` (default) | 0 | 0 |
+| `mypy --strict` | 2 | 0 |
+| max cyclomatic complexity | 16 (`cli.main`, `inspect_repo`) | 9 (`inspect_repo`) |
+
+## `git diff 9e0809b -- tests/`
+
+This is **not empty**, by approval. Every change maps to an approved entry in TEST_CHANGE_PROPOSALS.md:
+- P1: 6 `.pyc` files deleted from the index.
+- T1–T5: added `test_fetch_errors.py`, `test_inspect_errors.py`, `test_cli_extra.py`,
+  `test_report_notes.py`, `test_report_golden.py`, and `tests/data/*`.
+- P2–P7: `conftest.py`, `test_cli.py`, `test_discovery.py`, `test_fetch.py`, `test_inspect.py`, and
+  `test_report.py` were modified.
+
+No test was skipped, xfailed, deleted, or loosened. P3 tightened an assertion. `[tool.pytest]` is unchanged.
+Every `refactor(...)` commit touches only `src/`, not tests.
