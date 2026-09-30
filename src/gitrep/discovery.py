@@ -4,39 +4,20 @@ import os
 from pathlib import Path
 
 
-def _is_repo_root(p: Path) -> bool:
-    git = p / ".git"
-    if git.is_dir():
-        return True
-    if git.is_file():
-        return False
-    return False
-
-
-def _is_submodule_marker(p: Path) -> bool:
-    git = p / ".git"
-    return git.is_file()
-
-
 def discover_repos(root: Path | str, *, skip_submodules: bool = True) -> list[Path]:
-    """Walk root and return repo paths (dirs containing a .git directory)."""
-    root = Path(root).resolve()
+    """Walk ``root`` and return, sorted, the dirs that contain a ``.git`` directory.
+
+    With ``skip_submodules=False``, dirs whose ``.git`` is a file (gitlink) are
+    returned too. The walk never descends into a returned dir, so submodules
+    inside a repo's worktree are not found.
+    """
     found: list[Path] = []
-    if not root.exists():
-        return found
-
-    for dirpath, dirnames, _filenames in os.walk(
-        root, followlinks=False, onerror=lambda _e: None
-    ):
+    for dirpath, dirnames, _filenames in os.walk(Path(root).resolve()):
         cur = Path(dirpath)
-        if _is_repo_root(cur):
+        git = cur / ".git"
+        if git.is_dir() or (not skip_submodules and git.is_file()):
             found.append(cur)
             dirnames[:] = []
-            continue
-        if not skip_submodules and _is_submodule_marker(cur):
-            found.append(cur)
-            dirnames[:] = []
-            continue
-        dirnames[:] = [d for d in dirnames if d not in {".git"}]
-
+        else:
+            dirnames[:] = [d for d in dirnames if d != ".git"]
     return sorted(found)
