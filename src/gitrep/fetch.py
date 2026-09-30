@@ -2,12 +2,7 @@ from __future__ import annotations
 
 import subprocess
 import time
-from concurrent.futures import (
-    BrokenExecutor,
-    CancelledError,
-    ThreadPoolExecutor,
-    as_completed,
-)
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -53,15 +48,6 @@ def fetch_all(
     """Fetch all repos in parallel; never abort batch on individual failures."""
     if not repos:
         return {}
-    results: dict[Path, FetchResult] = {}
     with ThreadPoolExecutor(max_workers=max(1, min(max_workers, len(repos)))) as ex:
         futures = {ex.submit(_fetch_one, p, timeout): p for p in repos}
-        for fut in as_completed(futures):
-            p = futures[fut]
-            try:
-                results[p] = fut.result()
-            except (CancelledError, BrokenExecutor) as e:
-                results[p] = FetchResult(
-                    ok=False, stderr=f"{type(e).__name__}: {e}", duration_s=0.0
-                )
-    return results
+        return {futures[fut]: fut.result() for fut in as_completed(futures)}
