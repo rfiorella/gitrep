@@ -1,7 +1,7 @@
 # Refactor plan — gitrep
 
 Baseline commit: `9e0809b` (main, clean tree). Status: **Approved; all steps 0–9 executed on branch `refactor-cleanup`.** See REFACTOR_NOTES.md for results.
-Open questions 1–5 were answered yes. Q6 (CI Python matrix) is still open.
+All open questions were answered yes. Q6: the CI test matrix now covers 3.10–3.12.
 
 Related files: `REFACTOR_NOTES.md` (bugs found, not fixed), `TEST_CHANGE_PROPOSALS.md`
 (proposed characterization tests and test cleanups, none applied).
